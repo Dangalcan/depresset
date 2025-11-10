@@ -46,6 +46,7 @@ summary(ds)
 
 ```{r cars}
 
+# Vamos a convertir en boleanos
 ds <- ds %>%
   mutate(
     Have.you.ever.had.suicidal.thoughts.. = ifelse(Have.you.ever.had.suicidal.thoughts.. == "Yes", 1, 0),
@@ -55,5 +56,38 @@ ds <- ds %>%
 summary(ds)
 
 ```
+```{r cars}
 
+
+```
+
+```{r cars}
+
+
+```
+
+```{r cars}
+
+
+```
+
+```{r cars}
+
+
+```
+
+```{r cars}
+
+
+```
+
+```{r cars}
+
+
+```
+
+```{r cars}
+
+
+```
 

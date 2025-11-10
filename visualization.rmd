@@ -7,7 +7,7 @@ output: html_document
 # Proyecto sobre la depresión estudiantil
 
 ```{r cars}
-# Load all liibraries
+# Cargar las librerías
   library(readr)
   library(tidyr)
   library(dplyr)
@@ -20,10 +20,40 @@ output: html_document
 
 
 ```{r cars}
+  # leer el csv
   ds <- read.csv("./data/student_depression_dataset.csv",sep=",")
-
   head(ds)
-
   dim(ds)
 
 ```
+
+# Lectura y exploración del dataset**
+
+```{r cars}
+
+# Ver estructura y tipos de datos
+str(ds)
+
+# Nombres de columnas
+colnames(ds)
+
+# Resumen estadístico
+summary(ds)
+
+```
+
+
+
+```{r cars}
+
+ds <- ds %>%
+  mutate(
+    Have.you.ever.had.suicidal.thoughts.. = ifelse(Have.you.ever.had.suicidal.thoughts.. == "Yes", 1, 0),
+    Family.History.of.Mental.Illness = ifelse(Family.History.of.Mental.Illness == "Yes", 1, 0)
+  )
+
+summary(ds)
+
+```
+
+

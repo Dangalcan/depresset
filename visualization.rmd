@@ -10,6 +10,7 @@ output: html_document
 # Cargar las librerías
   library(readr)
   library(tidyr)
+  library(tidyverse)
   library(dplyr)
   library(ggplot2)
   library(lubridate)
@@ -26,68 +27,3 @@ output: html_document
   dim(ds)
 
 ```
-
-# Lectura y exploración del dataset**
-
-```{r cars}
-
-# Ver estructura y tipos de datos
-str(ds)
-
-# Nombres de columnas
-colnames(ds)
-
-# Resumen estadístico
-summary(ds)
-
-```
-
-
-
-```{r cars}
-
-# Vamos a convertir en boleanos
-ds <- ds %>%
-  mutate(
-    Have.you.ever.had.suicidal.thoughts.. = ifelse(Have.you.ever.had.suicidal.thoughts.. == "Yes", 1, 0),
-    Family.History.of.Mental.Illness = ifelse(Family.History.of.Mental.Illness == "Yes", 1, 0)
-  )
-
-summary(ds)
-
-```
-```{r cars}
-
-
-```
-
-```{r cars}
-
-
-```
-
-```{r cars}
-
-
-```
-
-```{r cars}
-
-
-```
-
-```{r cars}
-
-
-```
-
-```{r cars}
-
-
-```
-
-```{r cars}
-
-
-```
-

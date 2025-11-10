@@ -1,0 +1,128 @@
+---
+title: "Depresset"
+author: "Daniel Galván Cancio, Daniel Vela Gamacho, Jaime Linares Barrera, Miguel Encina Martinez"
+output: html_document
+---
+
+# Proyecto sobre la depresión estudiantil
+
+```{r cars}
+# Cargar las librerías
+  library(readr)
+  library(tidyr)
+  library(tidyverse)
+  library(dplyr)
+  library(ggplot2)
+  library(lubridate)
+  library(gapminder)
+  library(plotly)
+
+```
+
+
+```{r cars}
+  # leer el csv
+  ds <- read.csv("./data/student_depression_dataset.csv",sep=",")
+  head(ds)
+  dim(ds)
+
+```
+
+# Lectura y exploración del dataset**
+
+```{r cars}
+
+# Ver estructura y tipos de datos
+str(ds)
+
+# Nombres de columnas
+colnames(ds)
+
+# Resumen estadístico
+summary(ds)
+
+```
+
+
+
+```{r cars}
+
+# Vamos a convertir en boleanos
+ds <- ds %>%
+  mutate(
+    Have.you.ever.had.suicidal.thoughts.. = ifelse(Have.you.ever.had.suicidal.thoughts.. == "Yes", 1, 0),
+    Family.History.of.Mental.Illness = ifelse(Family.History.of.Mental.Illness == "Yes", 1, 0)
+  )
+
+summary(ds)
+
+```
+```{r cars}
+ # --- 1. Definir el orden lógico (los valores YA LIMPIOS) ---
+# Fíjate que aquí NO ponemos las comillas extra
+sleep_order <- c('Less than 5 hours', '5-6 hours', '7-8 hours', 'More than 8 hours')
+
+# --- 2. El Mutate corregido (Limpia Y Codifica) ---
+df_procesado <- ds %>%
+  mutate(
+    # Paso A: Creamos una columna limpia (quitando las comillas)
+    Duracion_Sueno_Limpia = str_replace_all(`Sleep Duration`, 
+                                           "'",  # El patrón a buscar (una comilla)
+                                           ""), # El reemplazo (nada)
+
+    # Paso B: Creamos el Factor Ordenado (usando la columna Limpia)
+    Duracion_Sueno_Factor = factor(Duracion_Sueno_Limpia, 
+                                   levels = sleep_order, 
+                                   ordered = TRUE),
+                                   
+    # Paso C: Creamos la versión Numérica (del Factor)
+    Duracion_Sueno_Num = as.numeric(Duracion_Sueno_Factor)
+  )
+
+# --- 3. Verificación (¡La parte más importante!) ---
+# Este código te muestra exactamente qué le pasó a cada valor
+cat("--- Verificación de la Transformación (incluyendo 'Others') ---\n")
+df_procesado %>%
+  # Agrupamos por la columna original, la limpia, el factor y el número
+  group_by(
+    Original = `Sleep Duration`, 
+    Limpia = Duracion_Sueno_Limpia, 
+    Factor_Ordenado = Duracion_Sueno_Factor, 
+    Numero_Codificado = Duracion_Sueno_Num
+  ) %>%
+  # Contamos cuántos hay de cada uno
+  count()
+  
+
+```
+
+```{r cars}
+
+
+```
+
+```{r cars}
+
+
+```
+
+```{r cars}
+
+
+```
+
+```{r cars}
+
+
+```
+
+```{r cars}
+
+
+```
+
+```{r cars}
+
+
+```
+

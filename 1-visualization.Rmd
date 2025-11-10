@@ -43,8 +43,38 @@ output: html_document
     Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
   )
 
+  depresion_por_sexo_masculino <- depresion_por_sexo %>%
+    filter(Gender == "Male")
 
-depresion_por_sexo
+  depresion_por_sexo_femenino <- depresion_por_sexo %>%
+    filter(Gender == "Female")
+
+  # Pie chart de varones deprimidos vs no deprimidos
+  plot_ly(depresion_por_sexo_masculino, labels = ~c('Deprimidos', 'No Deprimidos'),
+          values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
+          textposition = 'inside',
+          textinfo = 'label+percent') %>%
+    layout(title = 'Estudiantes Masculinos Deprimidos vs No Deprimidos',
+          xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+          yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+  # Pie chart de mujeres deprimidas vs no deprimidas
+  plot_ly(depresion_por_sexo_femenino, labels = ~c('Deprimidos', 'No Deprimidos'),
+          values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
+          textposition = 'inside',
+          textinfo = 'label+percent') %>%
+    layout(title = 'Estudiantes Femeninos Deprimidos vs No Deprimidos',
+          xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+          yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+
+  # Pie chart de porcentaje de estudiantes deprimidos por género
+  plot_ly(depresion_por_sexo, labels = ~Gender, values = ~Porcentaje_Deprimidos, type = 'pie',
+          textposition = 'inside',
+          textinfo = 'label+percent') %>%
+    layout(title = 'Porcentaje de Estudiantes Deprimidos por Género',
+          xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+          yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
 
 ```
 

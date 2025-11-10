@@ -4,6 +4,11 @@ author: "Daniel Galván Cancio, Daniel Vela Gamacho, Jaime Linares Barrera, Migu
 output: html_document
 ---
 
+## Dataset escogido
+
+Student depression: https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset
+
+
 # Proyecto sobre la depresión estudiantil
 
 ```{r}

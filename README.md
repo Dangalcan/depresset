@@ -2,7 +2,6 @@
 
 ## Miembros del grupo
 
-
 Se debe elegir un conjunto de datos y analizarlo. Repositorio de datos:
 
 * Kaggle: https://www.kaggle.com/

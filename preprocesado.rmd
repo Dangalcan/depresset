@@ -68,12 +68,37 @@ str(unique(ds$Profession))
 
 Como las horas de sueño tienen valores categóricos que tienen cierto orden, vamos a discretizarlas. Hay un problema con esta vairable ya que al acotarlo en el intervalo, uno de los valores posible (Others) no tenía doble comillas.
 
-```{r cars}
+```{r process_sleep_duration}
+#Definimos los niveles de sueño de manera ordenada
+sleep_order <- c(
+  "'Less than 5 hours'",
+  "'5-6 hours'",
+  "'7-8 hours'",
+  "'More than 8 hours'",
+  "Others"
+)
 
-str(unique(ds$Sleep.Duration))
+df_procesado <- ds %>%
+  mutate(
+    # Paso A: Creamos el Factor Ordenado
+    Duracion_Sueno_Factor = factor(ds$Sleep.Duration,
+      levels = sleep_order,
+      ordered = TRUE
+    ),
 
+    # Paso B: Creamos la versión Numérica (del Factor)
+    Duracion_Sueno_Num = as.numeric(Duracion_Sueno_Factor)
+  )
 
-
+df_procesado %>%
+  # Agrupamos por la columna original, el factor y el número
+  group_by(
+    Original = Sleep.Duration,
+    Factor_Ordenado = Duracion_Sueno_Factor,
+    Numero_Codificado = Duracion_Sueno_Num
+  ) %>%
+  # Contamos cuántos hay de cada uno
+  count()
 ```
 
 ```{r cars}

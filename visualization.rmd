@@ -20,7 +20,7 @@ output: html_document
 
 
 ```{r cars}
-  ds <- read.csv("./dataset/student_depression_dataset.csv",sep=";")
+  ds <- read.csv("./data/student_depression_dataset.csv",sep=",")
 
   head(ds)
 

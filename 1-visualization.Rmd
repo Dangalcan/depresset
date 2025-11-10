@@ -129,5 +129,23 @@ depresion_por_nivel_estudio <- ds %>%
   
 depresion_por_nivel_estudio
 ```
+# Depresión por edad 
 
+```{r cars}
+depresion_por_edad <- ds %>%
+  filter(Profession == "Student") %>%
+  group_by(Age) %>%
+  summarise(
+    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
+    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
+    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
+    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
+  )
+
+depresion_por_edad
+  
+```
 

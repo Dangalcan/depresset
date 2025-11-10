@@ -7,6 +7,10 @@
 * Jaime Linares Barrera
 * Miguel Encina Martinez
 
+## Dataset escogido
+
+Student depression: https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset
+
 ## Instrucciones
 
 Se debe elegir un conjunto de datos y analizarlo. Repositorio de datos:

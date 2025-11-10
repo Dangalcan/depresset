@@ -2,6 +2,13 @@
 
 ## Miembros del grupo
 
+* Daniel Galván Cancio
+* Daniel Vela Gamacho
+* Jaime Linares Barrera
+* Miguel Encina Martinez
+
+## Instrucciones
+
 Se debe elegir un conjunto de datos y analizarlo. Repositorio de datos:
 
 * Kaggle: https://www.kaggle.com/

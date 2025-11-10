@@ -245,3 +245,29 @@ depresion_por_nivel_estudio <- ds %>%
 depresion_por_nivel_estudio
   
 ```
+
+```{r}
+# Scatterplot para ver la  relación entre el rendimiento académico, la satisfacción académica y la depresión
+# Primero, crea la variable Depresion_bin
+df_procesado <- df_procesado %>%
+  dplyr::mutate(
+    Depresion_bin = ifelse(!is.na(Depression), as.character(Depression),
+      ifelse(!is.na(Depression.Score) & Depression.Score >= 10, "1", "0")
+    ),
+    Depresion_bin = factor(Depresion_bin, levels = c("0", "1"), labels = c("No", "Sí"))
+  )
+
+# Luego, crea el gráfico (en un bloque SEPARADO)
+ggplot(df_procesado, aes(x = CGPA, y = Study.Satisfaction, color = Depresion_bin, shape = Depresion_bin)) +
+  geom_point(size = 3, alpha = 0.8, na.rm = TRUE) +
+  scale_color_manual(values = c("No" = "#1f77b4", "Sí" = "#d62728")) +
+  scale_shape_manual(values = c("No" = 16, "Sí" = 17)) +
+  labs(
+    title = "CGPA vs Satisfacción según Depresión",
+    x = "CGPA",
+    y = "Study Satisfaction",
+    color = "Depresión",
+    shape = "Depresión"
+  ) +
+  theme_minimal()
+```

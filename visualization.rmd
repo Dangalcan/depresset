@@ -1,0 +1,29 @@
+---
+title: "Depresset"
+author: "Daniel Galván Cancio, Daniel Vela Gamacho, Jaime Linares Barrera, Miguel Encina Martinez"
+output: html_document
+---
+
+# Proyecto sobre la depresión estudiantil
+
+```{r cars}
+# Load all liibraries
+  library(readr)
+  library(tidyr)
+  library(dplyr)
+  library(ggplot2)
+  library(lubridate)
+  library(gapminder)
+  library(plotly)
+
+```
+
+
+```{r cars}
+  ds <- read.csv("./dataset/student_depression_dataset.csv",sep=";")
+
+  head(ds)
+
+  dim(ds)
+
+```

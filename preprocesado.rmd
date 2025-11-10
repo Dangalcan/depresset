@@ -1,5 +1,5 @@
 ---
-title: "Depresset. Grupo 6 Preprocesado"
+title: "Depresset. Grupo 5 Preprocesado"
 author: "Daniel Galván Cancio, Daniel Vela Gamacho, Jaime Linares Barrera, Miguel Encina Martinez"
 output: html_document
 ---
@@ -16,6 +16,7 @@ output: html_document
   library(lubridate)
   library(gapminder)
   library(plotly)
+  library(caret)
 
 ```
 

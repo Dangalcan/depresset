@@ -1,5 +1,5 @@
 ---
-title: "Depresset. Grupo 6. Visualización"
+title: "Depresset. Grupo 5. Visualización"
 author: "Daniel Galván Cancio, Daniel Vela Gamacho, Jaime Linares Barrera, Miguel Encina Martinez"
 output: html_document
 ---
@@ -89,7 +89,7 @@ ggplot(depresion_por_ciudades, aes(x = reorder(City, -Numero_Estudiantes_Deprimi
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
-## Depresión por sexo
+## Depresión por sexo en estudiantes
 
 ```{r cars}
 depresion_por_sexo <- ds %>%
@@ -108,7 +108,7 @@ depresion_por_sexo <- ds %>%
 depresion_por_sexo
 ```
 
-## Depresión por nivel de estudios
+## Depresión por nivel de estudios en estudiantes
 
 Hemos encontrado que la variable nivel de estudios tiene distintos valores, por lo que en el preprocesado deberemos abordar esto unificando unos valores categóricos con orden
 

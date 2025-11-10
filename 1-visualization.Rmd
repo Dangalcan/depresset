@@ -204,5 +204,39 @@ ggplot(depresion_long, aes(x = Age, y = Porcentaje, fill = Estado)) +
   
 ```
 
+## Depresión por horas de sueño
+
 ```{r }
+  depresion_por_horas_sueño <- ds %>%
+  filter(Profession == "Student") %>%
+  group_by(Sleep.Duration) %>%
+  summarise(
+    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
+    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
+    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
+    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
+  )
+depresion_por_horas_sueño
+```
+## Depresión por nivel de estudios 
+
+```{r}
+depresion_por_nivel_estudio <- ds %>%
+  filter(Profession == "Student") %>%
+  group_by(Age) %>%
+  summarise(
+    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
+    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
+    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
+    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
+  )
+  
+depresion_por_nivel_estudio
+  
 ```

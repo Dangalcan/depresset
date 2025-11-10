@@ -6,7 +6,7 @@ output: html_document
 
 # Proyecto sobre la depresión estudiantil
 
-```{r cars}
+```{r}
   library(readr)
   library(tidyr)
   library(tidyverse)
@@ -19,7 +19,7 @@ output: html_document
 ```
 
 
-```{r cars}
+```{r}
   # leer el csv
   ds <- read.csv("./data/student_depression_dataset.csv",sep=",")
   head(ds)
@@ -29,7 +29,7 @@ output: html_document
 
 ## Depresión por sexo
 
-```{r cars}
+```{r}
 
   depresion_por_sexo <- ds %>%
   group_by(Gender) %>%
@@ -80,7 +80,7 @@ output: html_document
 
 ## Depresión por profesión
 
-```{r cars}
+```{r}
 
 profesions <- ds %>%
   group_by(Profession) %>%
@@ -100,7 +100,7 @@ ggplot(profesions, aes(x = reorder(Profession, -Count), y = Count)) +
 
 ## Depresión por ciudad
 
-```{r cars}
+```{r}
 
 depresion_por_ciudades <- ds %>%
   filter(Depression == 1 & Profession == "Student") %>%
@@ -121,7 +121,7 @@ ggplot(depresion_por_ciudades, aes(x = reorder(City, -Numero_Estudiantes_Deprimi
 ```
 ## Depresión por sexo en estudiantes
 
-```{r cars}
+```{r}
 depresion_por_sexo <- ds %>%
   filter(Profession == "Student") %>%
   group_by(Gender) %>%
@@ -142,7 +142,7 @@ depresion_por_sexo
 
 Hemos encontrado que la variable nivel de estudios tiene distintos valores, por lo que en el preprocesado deberemos abordar esto unificando unos valores categóricos con orden
 
-```{r cars}
+```{r}
 
 depresion_por_nivel_estudio <- ds %>%
   filter(Profession == "Student") %>%
@@ -161,7 +161,7 @@ depresion_por_nivel_estudio
 ```
 # Depresión por edad 
 
-```{r cars}
+```{r}
 depresion_por_edad <- ds %>%
   filter(Profession == "Student") %>%
   group_by(Age) %>%
@@ -204,3 +204,5 @@ ggplot(depresion_long, aes(x = Age, y = Porcentaje, fill = Estado)) +
   
 ```
 
+```{r }
+```

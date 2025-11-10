@@ -6,7 +6,7 @@ output: html_document
 
 # Proyecto sobre la depresión estudiantil
 
-```{r cars}
+```{r}
 
   library(readr)
   library(tidyr)
@@ -21,7 +21,7 @@ output: html_document
 ```
 
 
-```{r cars}
+```{r}
   # leer el csv
   ds <- read.csv("./data/student_depression_dataset.csv",sep=",")
   head(ds)
@@ -31,7 +31,7 @@ output: html_document
 
 # Lectura y exploración del dataset**
 
-```{r cars}
+```{r}
 
 # Ver estructura y tipos de datos
 str(ds)
@@ -47,7 +47,7 @@ summary(ds)
 
 Como hay columnas que tienen variables con valores: "Yes" y "No", vamos a cambiar las columnas para que sus valores sean 1 en caso de "Yes" y 0 en caso de "No"
 
-```{r cars}
+```{r}
 
 ds <- ds %>%
   mutate(
@@ -61,7 +61,7 @@ ds <- ds %>%
 Además, como la mayoría de filas son de estudiantes, vamos a eliminar la profesión y vamos a eliminar aquellas filas
 cuya profesión sea distinta de "Student"
 
-```{r cars}
+```{r}
 
 str(unique(ds$Profession))
 
@@ -102,22 +102,22 @@ df_procesado %>%
   count()
 ```
 
-```{r cars}
+```{r}
 
 
 ```
 
-```{r cars}
+```{r}
 
 
 ```
 
-```{r cars}
+```{r}
 
 
 ```
 
-```{r cars}
+```{r}
 
 
 ```

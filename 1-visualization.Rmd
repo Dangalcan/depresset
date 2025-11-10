@@ -176,6 +176,31 @@ depresion_por_edad <- ds %>%
   )
 
 depresion_por_edad
+
+
+depresion_long <- depresion_por_edad %>%
+  mutate(Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos) %>%  # opcional, ya la tienes
+  pivot_longer(
+    cols = c(Porcentaje_Deprimidos, Porcentaje_No_Deprimidos),
+    names_to = "Estado",
+    values_to = "Porcentaje"
+  ) %>%
+  mutate(
+    Estado = recode(Estado,
+                    Porcentaje_Deprimidos = "Deprimidos",
+                    Porcentaje_No_Deprimidos = "No Deprimidos")
+  )
+
+# Gráfico de barras apiladas
+ggplot(depresion_long, aes(x = Age, y = Porcentaje, fill = Estado)) +
+  geom_col() +
+  labs(
+    title = "Porcentaje de estudiantes deprimidos por edad",
+    x = "Edad",
+    y = "Porcentaje (%)"
+  ) +
+  scale_fill_manual(values = c("Deprimidos" = "red", "No Deprimidos" = "green")) +
+  theme_minimal()
   
 ```
 

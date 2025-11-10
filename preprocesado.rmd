@@ -7,7 +7,7 @@ output: html_document
 # Proyecto sobre la depresión estudiantil
 
 ```{r cars}
-# Cargar las librerías
+
   library(readr)
   library(tidyr)
   library(tidyverse)

@@ -7,7 +7,6 @@ output: html_document
 # Proyecto sobre la depresión estudiantil
 
 ```{r cars}
-# Cargar las librerías
   library(readr)
   library(tidyr)
   library(tidyverse)
@@ -49,7 +48,7 @@ depresion_por_sexo
 
 ```
 
-## Depresión por ciudad
+## Depresión por profesión
 
 ```{r cars}
 
@@ -69,6 +68,66 @@ ggplot(profesions, aes(x = reorder(Profession, -Count), y = Count)) +
 
 ```
 
+## Depresión por ciudad
+
+```{r cars}
+
+depresion_por_ciudades <- ds %>%
+  filter(Depression == 1 & Profession == "Student") %>%
+  group_by(City) %>%
+  summarise(Numero_Estudiantes_Deprimidos = n()) %>%
+  arrange(desc(Numero_Estudiantes_Deprimidos))
+
+depresion_por_ciudades
+
+ggplot(depresion_por_ciudades, aes(x = reorder(City, -Numero_Estudiantes_Deprimidos), y = Numero_Estudiantes_Deprimidos)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Ciudades con más Estudiantes Deprimidos",
+       x = "Ciudad",
+       y = "Número de Estudiantes Deprimidos") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+## Depresión por sexo
+
+```{r cars}
+depresion_por_sexo <- ds %>%
+  filter(Profession == "Student") %>%
+  group_by(Gender) %>%
+  summarise(
+    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
+    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
+    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
+    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
+  )
+
+depresion_por_sexo
+```
+
 ## Depresión por nivel de estudios
+
+Hemos encontrado que la variable nivel de estudios tiene distintos valores, por lo que en el preprocesado deberemos abordar esto unificando unos valores categóricos con orden
+
+```{r cars}
+
+depresion_por_nivel_estudio <- ds %>%
+  filter(Profession == "Student") %>%
+  group_by(Degree) %>%
+  summarise(
+    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
+    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
+    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
+    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
+  )
+  
+depresion_por_nivel_estudio
+```
 
 

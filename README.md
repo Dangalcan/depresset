@@ -3,7 +3,7 @@
 ## Miembros del grupo
 
 * Daniel Galván Cancio
-* Daniel Vela Gamacho
+* Daniel Vela Camacho
 * Jaime Linares Barrera
 * Miguel Encina Martinez
 

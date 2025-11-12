@@ -1,6 +1,6 @@
 ---
 title: "Depresset. Grupo 5. Visualización"
-author: "Daniel Galván Cancio, Daniel Vela Gamacho, Jaime Linares Barrera, Miguel Encina Martinez"
+author: "Daniel Galván Cancio, Daniel Vela Camacho, Jaime Linares Barrera, Miguel Encina Martinez"
 output: html_document
 ---
 
@@ -666,7 +666,7 @@ plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
 ```{r}
 # Scatterplot para ver la  relación entre el rendimiento académico, la satisfacción académica y la depresión
 # Primero, crea la variable Depresion_bin
-df_procesado <- df_procesado %>%
+df_procesado <- ds %>%
   dplyr::mutate(
     Depresion_bin = ifelse(!is.na(Depression), as.character(Depression),
       ifelse(!is.na(Depression.Score) & Depression.Score >= 10, "1", "0")

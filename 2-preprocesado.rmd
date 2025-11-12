@@ -1,6 +1,6 @@
 ---
 title: "Depresset. Grupo 5 Preprocesado"
-author: "Daniel Galván Cancio, Daniel Vela Gamacho, Jaime Linares Barrera, Miguel Encina Martinez"
+author: "Daniel Galván Cancio, Daniel Vela Camacho, Jaime Linares Barrera, Miguel Encina Martinez"
 output: html_document
 ---
 

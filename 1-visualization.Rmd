@@ -211,7 +211,7 @@ ggplot(depresion_long, aes(x = Age, y = Porcentaje, fill = Estado)) +
 
 ## Depresión por horas de sueño
 
-```{r }
+```{r}
   depresion_por_horas_sueño <- ds %>%
   filter(Profession == "Student") %>%
   group_by(Sleep.Duration) %>%

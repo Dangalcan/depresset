@@ -9,10 +9,10 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
-<meta name="author" content="Daniel Galván Cancio, Daniel Vela Camacho, Jaime Linares Barrera, Miguel Encina Martinez" />
+<meta name="author" content="Miguel Encina Martinez, Daniel Galván Cancio, Jaime Linares Barrera, Daniel Vela Camacho" />
 
 
-<title>Depresset. Grupo 5 Preprocesado</title>
+<title>Estudio sobre la depresión estudiantil. Grupo 5. Preprocesamiento</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -349,64 +349,69 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Depresset. Grupo 5 Preprocesado</h1>
-<h4 class="author">Daniel Galván Cancio, Daniel Vela Camacho, Jaime
-Linares Barrera, Miguel Encina Martinez</h4>
+<h1 class="title toc-ignore">Estudio sobre la depresión estudiantil.
+Grupo 5. Preprocesamiento</h1>
+<h4 class="author">Miguel Encina Martinez, Daniel Galván Cancio, Jaime
+Linares Barrera, Daniel Vela Camacho</h4>
 
 </div>
 
 
-<div id="dataset-escogido" class="section level2">
-<h2>Dataset escogido</h2>
-<p>Student depression: <a href="https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset" class="uri">https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset</a></p>
+<div id="estudio-sobre-la-depresión-estudiantil" class="section level1">
+<h1>Estudio sobre la depresión estudiantil</h1>
+<p>La salud mental estudiantil se ha convertido en una de las
+principales preocupaciones dentro del ámbito académico y social en los
+últimos años. La presión por obtener buenos resultados, la inestabilidad
+emocional propia de la etapa formativa, la carga de trabajo, el estrés,
+la falta de apoyo y otros factores externos han provocado que la
+depresión en estudiantes aumente de forma notable. Comprender las
+causas, patrones y factores asociados a este fenómeno resulta
+fundamental tanto para diseñar programas de prevención como para
+desarrollar intervenciones tempranas que mejoren el bienestar del
+alumnado.</p>
+<p>El estudio de la depresión estudiantil mediante técnicas de análisis
+de datos permite identificar tendencias que no siempre son evidentes a
+simple vista. A través de la exploración y modelización de datos podemos
+descubrir relaciones entre variables, detectar perfiles de riesgo y
+analizar el impacto de ciertos hábitos o situaciones personales sobre la
+salud mental. Este proyecto tiene como objetivo profundizar en dichos
+aspectos utilizando un conjunto de datos real y aplicar herramientas
+propias de la ingeniería de datos para obtener conclusiones
+fundamentadas.</p>
+<p>A lo largo de los distintos notebooks que componen este trabajo
+realizaremos una exploración completa del dataset, empezando por una
+visualización inicial, pasando por procesos de limpieza y
+preprocesamiento y, finalmente, aplicando técnicas de aprendizaje
+supervisado y no supervisado que nos permitirán extraer conocimiento de
+forma rigurosa. El propósito final no es únicamente obtener resultados
+numéricos, sino también reflexionar sobre cómo el análisis de datos
+puede contribuir a mejorar la detección y comprensión de problemas de
+salud mental en entornos educativos.</p>
+<p>Para llevar a cabo este estudio hemos utilizado unos datos de la
+plataforma <a href="https://www.kaggle.com/">Kaggle</a> que pueden
+acceder a través del seguiente enlace: <a href="https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset" class="uri">https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset</a></p>
 </div>
-<div id="proyecto-sobre-la-depresión-estudiantil" class="section level1">
-<h1>Proyecto sobre la depresión estudiantil</h1>
-<pre class="r"><code>  library(readr)
-  library(tidyr)
-  library(tidyverse)</code></pre>
-<pre><code>## Warning: package &#39;tidyverse&#39; was built under R version 4.5.2</code></pre>
-<pre><code>## Warning: package &#39;forcats&#39; was built under R version 4.5.2</code></pre>
-<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-## ✔ dplyr     1.1.4     ✔ purrr     1.1.0
-## ✔ forcats   1.0.1     ✔ stringr   1.5.2
-## ✔ ggplot2   4.0.0     ✔ tibble    3.3.0
-## ✔ lubridate 1.9.4     
-## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-## ✖ dplyr::filter() masks stats::filter()
-## ✖ dplyr::lag()    masks stats::lag()
-## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
-<pre class="r"><code>  library(dplyr)
-  library(ggplot2)
-  library(lubridate)
-  library(gapminder)
-  library(plotly)</code></pre>
+<div id="preprocesamiento" class="section level1">
+<h1>Preprocesamiento</h1>
+<p>’‘’TODO: Descripción apartado’’’</p>
+<p>Antes de comenzar, vamos a importar las librerías que nos van a hacer
+falta en este notebook.</p>
+<pre class="r"><code>#install.packages(&quot;dplyr&quot;)
+library(dplyr)</code></pre>
 <pre><code>## 
-## Adjuntando el paquete: &#39;plotly&#39;
+## Adjuntando el paquete: &#39;dplyr&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
 ## 
-## The following object is masked from &#39;package:ggplot2&#39;:
+##     filter, lag</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
 ## 
-##     last_plot
-## 
-## The following object is masked from &#39;package:stats&#39;:
-## 
-##     filter
-## 
-## The following object is masked from &#39;package:graphics&#39;:
-## 
-##     layout</code></pre>
-<pre class="r"><code>  library(caret)</code></pre>
-<pre><code>## Warning: package &#39;caret&#39; was built under R version 4.5.2</code></pre>
-<pre><code>## Cargando paquete requerido: lattice
-## 
-## Adjuntando el paquete: &#39;caret&#39;
-## 
-## The following object is masked from &#39;package:purrr&#39;:
-## 
-##     lift</code></pre>
-<pre class="r"><code>  # leer el csv
-  ds &lt;- read.csv(&quot;./data/student_depression_dataset.csv&quot;,sep=&quot;,&quot;)
-  head(ds)</code></pre>
+##     intersect, setdiff, setequal, union</code></pre>
+<div id="lectura-del-dataset" class="section level2">
+<h2>1. Lectura del dataset</h2>
+<p>Leemos el archivo CSV <code>student_depression_dataset</code> que se
+encuentra en la carpeta <code>data</code>.</p>
+<pre class="r"><code>data &lt;- read.csv(&quot;./data/student_depression_dataset.csv&quot;, sep=&quot;,&quot;)
+head(data)</code></pre>
 <pre><code>##   id Gender Age          City Profession Academic.Pressure Work.Pressure CGPA
 ## 1  2   Male  33 Visakhapatnam    Student                 5             0 8.97
 ## 2  8 Female  24     Bangalore    Student                 2             0 5.90
@@ -435,13 +440,8 @@ Linares Barrera, Miguel Encina Martinez</h4>
 ## 4              5.0                              Yes          1
 ## 5              1.0                               No          0
 ## 6              1.0                               No          0</code></pre>
-<pre class="r"><code>  dim(ds)</code></pre>
-<pre><code>## [1] 27901    18</code></pre>
-</div>
-<div id="lectura-y-exploración-del-dataset" class="section level1">
-<h1>Lectura y exploración del dataset**</h1>
 <pre class="r"><code># Ver estructura y tipos de datos
-str(ds)</code></pre>
+str(data)</code></pre>
 <pre><code>## &#39;data.frame&#39;:    27901 obs. of  18 variables:
 ##  $ id                                   : int  2 8 26 30 32 33 52 56 59 62 ...
 ##  $ Gender                               : chr  &quot;Male&quot; &quot;Female&quot; &quot;Male&quot; &quot;Female&quot; ...
@@ -462,7 +462,7 @@ str(ds)</code></pre>
 ##  $ Family.History.of.Mental.Illness     : chr  &quot;No&quot; &quot;Yes&quot; &quot;Yes&quot; &quot;Yes&quot; ...
 ##  $ Depression                           : int  1 0 0 1 0 0 0 0 1 1 ...</code></pre>
 <pre class="r"><code># Nombres de columnas
-colnames(ds)</code></pre>
+colnames(data)</code></pre>
 <pre><code>##  [1] &quot;id&quot;                                   
 ##  [2] &quot;Gender&quot;                               
 ##  [3] &quot;Age&quot;                                  
@@ -482,7 +482,7 @@ colnames(ds)</code></pre>
 ## [17] &quot;Family.History.of.Mental.Illness&quot;     
 ## [18] &quot;Depression&quot;</code></pre>
 <pre class="r"><code># Resumen estadístico
-summary(ds)</code></pre>
+summary(data)</code></pre>
 <pre><code>##        id            Gender               Age            City          
 ##  Min.   :     2   Length:27901       Min.   :18.00   Length:27901      
 ##  1st Qu.: 35039   Class :character   1st Qu.:21.00   Class :character  
@@ -519,12 +519,13 @@ summary(ds)</code></pre>
 ##                                                      3rd Qu.:1.0000  
 ##                                                      Max.   :1.0000</code></pre>
 </div>
+</div>
 <div id="preprocesado" class="section level1">
 <h1>Preprocesado</h1>
 <p>Como hay columnas que tienen variables con valores: “Yes” y “No”,
 vamos a cambiar las columnas para que sus valores sean 1 en caso de
 “Yes” y 0 en caso de “No”</p>
-<pre class="r"><code>ds &lt;- ds %&gt;%
+<pre class="r"><code>data &lt;- data %&gt;%
   mutate(
     Have.you.ever.had.suicidal.thoughts.. = ifelse(Have.you.ever.had.suicidal.thoughts.. == &quot;Yes&quot;, 1, 0),
     Family.History.of.Mental.Illness = ifelse(Family.History.of.Mental.Illness == &quot;Yes&quot;, 1, 0)
@@ -532,7 +533,7 @@ vamos a cambiar las columnas para que sus valores sean 1 en caso de
 <p>Además, como la mayoría de filas son de estudiantes, vamos a eliminar
 la profesión y vamos a eliminar aquellas filas cuya profesión sea
 distinta de “Student”</p>
-<pre class="r"><code>str(unique(ds$Profession))</code></pre>
+<pre class="r"><code>str(unique(data$Profession))</code></pre>
 <pre><code>##  chr [1:14] &quot;Student&quot; &quot;&#39;Civil Engineer&#39;&quot; &quot;Architect&quot; &quot;&#39;UX/UI Designer&#39;&quot; ...</code></pre>
 <p>Como las horas de sueño tienen valores categóricos que tienen cierto
 orden, vamos a discretizarlas. Hay un problema con esta vairable ya que
@@ -548,10 +549,10 @@ sleep_order &lt;- c(
   &quot;Others&quot;
 )
 
-df_procesado &lt;- ds %&gt;%
+df_procesado &lt;- data %&gt;%
   mutate(
     # Paso A: Creamos el Factor Ordenado
-    Duracion_Sueno_Factor = factor(ds$Sleep.Duration,
+    Duracion_Sueno_Factor = factor(data$Sleep.Duration,
       levels = sleep_order,
       ordered = TRUE
     ),

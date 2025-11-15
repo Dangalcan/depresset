@@ -1,60 +1,60 @@
 ---
-title: "Depresset. Grupo 5 Preprocesado"
-author: "Daniel Galván Cancio, Daniel Vela Camacho, Jaime Linares Barrera, Miguel Encina Martinez"
+title: "Estudio sobre la depresión estudiantil. Grupo 5. Preprocesamiento"
+author: "Miguel Encina Martinez, Daniel Galván Cancio, Jaime Linares Barrera, Daniel Vela Camacho"
 output: html_document
 ---
 
-## Dataset escogido
+# Estudio sobre la depresión estudiantil
 
-Student depression: https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset
+La salud mental estudiantil se ha convertido en una de las principales preocupaciones dentro del ámbito académico y social en los últimos años. La presión por obtener buenos resultados, la inestabilidad emocional propia de la etapa formativa, la carga de trabajo, el estrés, la falta de apoyo y otros factores externos han provocado que la depresión en estudiantes aumente de forma notable. Comprender las causas, patrones y factores asociados a este fenómeno resulta fundamental tanto para diseñar programas de prevención como para desarrollar intervenciones tempranas que mejoren el bienestar del alumnado.
 
+El estudio de la depresión estudiantil mediante técnicas de análisis de datos permite identificar tendencias que no siempre son evidentes a simple vista. A través de la exploración y modelización de datos podemos descubrir relaciones entre variables, detectar perfiles de riesgo y analizar el impacto de ciertos hábitos o situaciones personales sobre la salud mental. Este proyecto tiene como objetivo profundizar en dichos aspectos utilizando un conjunto de datos real y aplicar herramientas propias de la ingeniería de datos para obtener conclusiones fundamentadas.
 
-# Proyecto sobre la depresión estudiantil
+A lo largo de los distintos notebooks que componen este trabajo realizaremos una exploración completa del dataset, empezando por una visualización inicial, pasando por procesos de limpieza y preprocesamiento y, finalmente, aplicando técnicas de aprendizaje supervisado y no supervisado que nos permitirán extraer conocimiento de forma rigurosa. El propósito final no es únicamente obtener resultados numéricos, sino también reflexionar sobre cómo el análisis de datos puede contribuir a mejorar la detección y comprensión de problemas de salud mental en entornos educativos.
+
+Para llevar a cabo este estudio hemos utilizado unos datos de la plataforma [Kaggle](https://www.kaggle.com/) que pueden acceder a través del seguiente enlace: <https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset>
+
+# Preprocesamiento
+
+'''TODO: Descripción apartado'''
+
+Antes de comenzar, vamos a importar las librerías que nos van a hacer falta en este notebook.
 
 ```{r}
-
-  library(readr)
-  library(tidyr)
-  library(tidyverse)
-  library(dplyr)
-  library(ggplot2)
-  library(lubridate)
-  library(gapminder)
-  library(plotly)
-  library(caret)
-
+#install.packages("dplyr")
+library(dplyr)
 ```
 
 
+## 1. Lectura del dataset
+
+Leemos el archivo CSV `student_depression_dataset` que se encuentra en la carpeta `data`.
+
 ```{r}
-  # leer el csv
-  ds <- read.csv("./data/student_depression_dataset.csv",sep=",")
-  head(ds)
-  dim(ds)
-
+data <- read.csv("./data/student_depression_dataset.csv", sep=",")
+head(data)
 ```
-
-# Lectura y exploración del dataset**
 
 ```{r}
 
 # Ver estructura y tipos de datos
-str(ds)
+str(data)
 
 # Nombres de columnas
-colnames(ds)
+colnames(data)
 
 # Resumen estadístico
-summary(ds)
+summary(data)
 
 ```
+
 # Preprocesado
 
 Como hay columnas que tienen variables con valores: "Yes" y "No", vamos a cambiar las columnas para que sus valores sean 1 en caso de "Yes" y 0 en caso de "No"
 
 ```{r}
 
-ds <- ds %>%
+data <- data %>%
   mutate(
     Have.you.ever.had.suicidal.thoughts.. = ifelse(Have.you.ever.had.suicidal.thoughts.. == "Yes", 1, 0),
     Family.History.of.Mental.Illness = ifelse(Family.History.of.Mental.Illness == "Yes", 1, 0)
@@ -68,7 +68,7 @@ cuya profesión sea distinta de "Student"
 
 ```{r}
 
-str(unique(ds$Profession))
+str(unique(data$Profession))
 
 ```
 
@@ -84,10 +84,10 @@ sleep_order <- c(
   "Others"
 )
 
-df_procesado <- ds %>%
+df_procesado <- data %>%
   mutate(
     # Paso A: Creamos el Factor Ordenado
-    Duracion_Sueno_Factor = factor(ds$Sleep.Duration,
+    Duracion_Sueno_Factor = factor(data$Sleep.Duration,
       levels = sleep_order,
       ordered = TRUE
     ),

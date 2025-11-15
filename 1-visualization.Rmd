@@ -32,12 +32,8 @@ library(patchwork)
 #install.packages("dplyr")
 library(dplyr)
 
-#library(readr)
-#library(tidyr)
-#library(tidyverse)
-#library(lubridate)
-#library(gapminder)
-#library(plotly)
+#install.packages("corrplot")
+library(corrplot)
 ```
 
 ## 1. Lectura del dataset
@@ -201,629 +197,193 @@ for (var in categorical_vars) {
 
 ## 3. Exploración bivariante
 
+En esta sección analizamos la relación entre pares de variables del dataset. Mientras que en la exploración univariante nos centramos en el comportamiento individual de cada variable, aquí buscamos patrones conjuntos: cómo se relacionan entre sí las variables numéricas, cómo cambia la distribución de una variable numérica según distintas categorías y cómo se asocian distintas variables categóricas entre sí.
 
+El objetivo principal es detectar posibles asociaciones relevantes con la variable de interés `Depression`, así como relaciones entre factores académicos, personales y de estilo de vida.
 
+### 3.1. Relación entre variables numéricas
 
+En primer lugar estudiamos la relación entre las variables numéricas del conjunto de datos. Esto nos permite identificar correlaciones y posibles patrones lineales o no lineales entre variables como la edad, el rendimiento académico o la satisfacción con los estudios.
 
+#### 3.1.1. Matriz de correlación entre variables numéricas
 
-### Depresión por sexo
+Calculamos la matriz de correlaciones de Pearson entre las variables numéricas definidas previamente en numeric_vars:
 
 ```{r}
+datos_numericos <- data[, numeric_vars] 
 
-  depresion_por_sexo <- data %>%
+cor_matrix <- cor(datos_numericos) 
+cor_matrix
+```
+
+```{r, fig.width=12, fig.height=8}
+corrplot(
+  cor_matrix,
+  method = "color",
+  type = "upper",
+  addCoef.col = "black",
+  tl.col = "black",
+  tl.srt = 45
+)
+```
+
+La matriz de correlaciones muestra que **no existen relaciones fuertes entre las variables analizadas**. Todas las correlaciones son muy bajas, lo que indica que factores como la edad, el rendimiento académico o las horas de estudio no presentan asociaciones significativas con la satisfacción o la presión académica.
+
+La relación más destacable, aunque sigue siendo débil, es la existente entre presión académica y satisfacción con los estudios, con una ligera correlación negativa. Por ello, es la que resulta más interesante para analizar, y se ha estudiado en detalle en el apartado anterior.
+
+#### 3.1.2. Relación entre la presión académica y la satisfacción con los estudios
+
+A continuación, analizamos la relación entre la presión académica (`Academic.Pressure`) y la satisfacción con los estudios (`Study.Satisfaction`). Este tipo de representación permite observar si los niveles de presión que experimentan los estudiantes influyen en su percepción de satisfacción, así como detectar patrones o tendencias generales.
+
+```{r}
+ggplot(data, aes(x = Academic.Pressure, y = Study.Satisfaction)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    title = "Relación entre presión académica y satisfacción con los estudios",
+    x = "Pressión Académica",
+    y = "Study Satisfaction"
+  ) +
+  theme_minimal()
+
+```
+
+La gráfica muestra que no existe una relación clara y fuerte entre la presión académica y la satisfacción con los estudios.
+
+La línea de regresión presenta una ligera pendiente negativa, lo que indica que, en promedio, a mayor presión académica, la satisfacción tiende a ser levemente menor, aunque el efecto es muy reducido.
+
+En resumen: la presión académica no parece influir de manera significativa en la satisfacción de los estudiantes.
+
+### 3.2. Relación entre variables numéricas y la depresión
+
+En este apartado analizamos cómo varían las variables numéricas en función del estado de depresión (`Depression`). De esta forma podemos estudiar, por ejemplo, si los estudiantes con depresión tienden a tener menor rendimiento académico, menor satisfacción o diferentes patrones de horas de estudio.
+
+Para ello representamos, mediante boxplots, la distribución de cada variable numérica separando entre estudiantes con y sin depresión.
+
+```{r}
+data_bi <- data %>%
+  mutate(
+    Depression_cat = ifelse(Depression == 1, "Depresión", "Sin depresión")
+  )
+
+for (var in numeric_vars) {
+  p <- ggplot(data_bi, aes(x = Depression_cat, y = .data[[var]], fill = Depression_cat)) +
+    geom_boxplot(alpha = 0.7) +
+    labs(
+      title = paste("Distribución de", var, "según estado de depresión"),
+      x = "Estado de depresión",
+      y = var,
+      fill = "Depresión"
+    ) +
+    theme_minimal()
+
+  print(p)
+}
+```
+
+### 3.3. Relación entre variables categóricas
+
+En este apartado analizamos la relación entre pares de variables categóricas del dataset. Este tipo de análisis permite explorar cómo se distribuyen distintos grupos dentro de cada categoría y si existen patrones relevantes entre características como el género, los hábitos de vida o factores familiares.
+
+A diferencia de la relación con la depresión (que veremos en el siguiente apartado) aquí el objetivo es estudiar asociaciones puramente descriptivas entre variables cualitativas, de modo que podamos detectar desequilibrios, dependencias o comportamientos diferenciados entre grupos.
+
+Como ejemplo representativo analizamos la relación entre:
+
+-   `Gender` (género del estudiante), y
+
+-   `Family.History.of.Mental.Illness` (si el estudiante tiene antecedentes familiares de enfermedad mental).
+
+Utilizamos una *tabla de contingencia* para observar la distribución conjunta, seguida de un *diagrama de barras apiladas* que permite visualizar las proporciones de forma más intuitiva.
+
+```{r}
+tabla_genero_familia <- table(
+  data$Gender,
+  data$Family.History.of.Mental.Illness
+)
+
+tabla_genero_familia
+prop.table(tabla_genero_familia, margin = 1) * 100
+```
+
+```{r}
+df_genero_familia <- data %>%
+  group_by(Gender, Family.History.of.Mental.Illness) %>%
+  summarise(Numero = n(), .groups = "drop") %>%
   group_by(Gender) %>%
-  summarise(
-    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
-    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
-  ) %>%
   mutate(
-    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
-    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
-    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
+    Porcentaje = 100 * Numero / sum(Numero)
   )
 
-  depresion_por_sexo_masculino <- depresion_por_sexo %>%
-    filter(Gender == "Male")
-
-  depresion_por_sexo_femenino <- depresion_por_sexo %>%
-    filter(Gender == "Female")
-
-  # Pie chart de varones deprimidos vs no deprimidos
-  plot_ly(depresion_por_sexo_masculino, labels = ~c('Deprimidos', 'No Deprimidos'),
-          values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-          textposition = 'inside',
-          textinfo = 'label+percent') %>%
-    layout(title = 'Estudiantes Masculinos Deprimidos vs No Deprimidos',
-          xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-          yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-  # Pie chart de mujeres deprimidas vs no deprimidas
-  plot_ly(depresion_por_sexo_femenino, labels = ~c('Deprimidos', 'No Deprimidos'),
-          values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-          textposition = 'inside',
-          textinfo = 'label+percent') %>%
-    layout(title = 'Estudiantes Femeninos Deprimidos vs No Deprimidos',
-          xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-          yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-
-  # Pie chart de porcentaje de estudiantes deprimidos por género
-  plot_ly(depresion_por_sexo, labels = ~Gender, values = ~Porcentaje_Deprimidos, type = 'pie',
-          textposition = 'inside',
-          textinfo = 'label+percent') %>%
-    layout(title = 'Porcentaje de Estudiantes Deprimidos por Género',
-          xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-          yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-```
-
-### Depresión por ciudad
-
-```{r}
-
-depresion_por_ciudades <- data %>%
-  filter(Depression == 1 & Profession == "Student") %>%
-  group_by(City) %>%
-  summarise(Numero_Estudiantes_Deprimidos = n()) %>%
-  arrange(desc(Numero_Estudiantes_Deprimidos))
-
-depresion_por_ciudades
-
-ggplot(depresion_por_ciudades, aes(x = reorder(City, -Numero_Estudiantes_Deprimidos), y = Numero_Estudiantes_Deprimidos)) +
-  geom_bar(stat = "identity", fill = "steelblue") +
-  labs(title = "Ciudades con más Estudiantes Deprimidos",
-       x = "Ciudad",
-       y = "Número de Estudiantes Deprimidos") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
-
-
-### Depresión por nivel de estudios en estudiantes
-
-Hemos encontrado que la variable nivel de estudios tiene distintos valores, por lo que en el preprocesado deberemos abordar esto unificando unos valores categóricos con orden
-
-```{r}
-
-depresion_por_nivel_estudio <- data %>%
-  filter(Profession == "Student") %>%
-  group_by(Degree) %>%
-  summarise(
-    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
-    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
-    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
-    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
-  )
-  
-depresion_por_nivel_estudio
-```
-
-### Depresión por edad
-
-```{r}
-depresion_por_edad <- data %>%
-  filter(Profession == "Student") %>%
-  group_by(Age) %>%
-  summarise(
-    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
-    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
-    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
-    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
-  )
-
-depresion_por_edad
-
-
-depresion_long <- depresion_por_edad %>%
-  mutate(Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos) %>%  # opcional, ya la tienes
-  pivot_longer(
-    cols = c(Porcentaje_Deprimidos, Porcentaje_No_Deprimidos),
-    names_to = "Estado",
-    values_to = "Porcentaje"
-  ) %>%
-  mutate(
-    Estado = recode(Estado,
-                    Porcentaje_Deprimidos = "Deprimidos",
-                    Porcentaje_No_Deprimidos = "No Deprimidos")
-  )
-
-# Gráfico de barras apiladas
-ggplot(depresion_long, aes(x = Age, y = Porcentaje, fill = Estado)) +
+ggplot(df_genero_familia, aes(
+  x = Gender, y = Porcentaje,
+  fill = Family.History.of.Mental.Illness
+)) +
   geom_col() +
   labs(
-    title = "Porcentaje de estudiantes deprimidos por edad",
-    x = "Edad",
-    y = "Porcentaje (%)"
-  ) +
-  scale_fill_manual(values = c("Deprimidos" = "red", "No Deprimidos" = "green")) +
-  theme_minimal()
-  
-```
-
-### Depresión por horas de sueño
-
-```{r}
-  depresion_por_horas_sueño <- data %>%
-  filter(Profession == "Student") %>%
-  group_by(Sleep.Duration) %>%
-  summarise(
-    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
-    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
-    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
-    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
-  )
-depresion_por_horas_sueño
-```
-
-### Depresión por nivel de estudios
-
-```{r}
-depresion_por_nivel_estudio <- data %>%
-  filter(Profession == "Student") %>%
-  group_by(Age) %>%
-  summarise(
-    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
-    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
-    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
-    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
-  )
-  
-depresion_por_nivel_estudio
-
-depresion_por_nivel_estudio <- data %>%
-  filter(Profession == "Student") %>%
-  group_by(Degree) %>%
-  summarise(
-    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
-    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
-    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
-    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
-  )
-  
-depresion_por_nivel_estudio
-
-# Grafico de barras del numero de estudiantes deprimidos por nivel de estudio
-ggplot(depresion_por_nivel_estudio, aes(x = reorder(Degree, -Numero_Estudiantes_Deprimidos), y = Numero_Estudiantes_Deprimidos)) +
-  geom_bar(stat = "identity", fill = "purple") +
-  labs(title = "Número de Estudiantes Deprimidos por Nivel de Estudio",
-       x = "Nivel de Estudio",
-       y = "Número de Estudiantes Deprimidos") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-# pie chart de cada nivel de estudio con porcentaje de estudiantes deprimidos
-# Class 12
-depresion_por_class12 <- depresion_por_nivel_estudio %>%
-  filter(Degree == "'Class 12'")
-
-depresion_por_class12
-
-plot_ly(depresion_por_class12, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de Class 12 Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#B.Arch
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "B.Arch")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de B.Arch Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#B.Com
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "B.Com")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de B.Com Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#B.Ed
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "B.Ed")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de B.Ed Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#B.Pharm
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "B.Pharm")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de B.Pharm Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#B.Tech
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "B.Tech")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de B.Tech Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#BA
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "BA")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de BA Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#BBA
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "BBA")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de BBA Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#BCA
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "BCA")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de BCA Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#BE
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "BE")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de BE Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#BHM
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "BHM")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de BHM Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#BSc
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "BSc")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de BSc Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#LLB
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "LLB")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de LLB Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#LLM
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "LLM")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de LLM Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#M.Com
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "M.Com")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de M.Com Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#M.Ed
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "M.Ed")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de M.Ed Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#M.Pharm
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "M.Pharm")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de M.Pharm Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#M.Tech
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "M.Tech")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de M.Tech Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#MA
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "MA")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de MA Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#MBA
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "MBA")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de MBA Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#MBBS
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "MBBS")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de MBBS Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#MCA
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "MCA")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de MCA Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#MD
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "MD")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de MD Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#ME
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "ME")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de ME Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#MHM
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "MHM")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de MHM Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#MSc
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "MSc")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de MSc Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#Others
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "Others")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de Others Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-
-#PhD
-depresion_por_barch <- depresion_por_nivel_estudio %>%
-  filter(Degree == "PhD")
-
-depresion_por_barch
-
-plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
-        values = ~c(Numero_Estudiantes_Deprimidos, Numero_Estudiantes_No_Deprimidos), type = 'pie',
-        textposition = 'inside',
-        textinfo = 'label+percent') %>%
-  layout(title = 'Estudiantes de PhD Deprimidos vs No Deprimidos',
-        xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-  
-```
-
-```{r}
-# Scatterplot para ver la  relación entre el rendimiento académico, la satisfacción académica y la depresión
-# Primero, crea la variable Depresion_bin
-data_procesado <- data %>%
-  dplyr::mutate(
-    Depresion_bin = ifelse(!is.na(Depression), as.character(Depression),
-      ifelse(!is.na(Depression.Score) & Depression.Score >= 10, "1", "0")
-    ),
-    Depresion_bin = factor(Depresion_bin, levels = c("0", "1"), labels = c("No", "Sí"))
-  )
-
-# Luego, crea el gráfico (en un bloque SEPARADO)
-ggplot(data_procesado, aes(x = CGPA, y = Study.Satisfaction, color = Depresion_bin, shape = Depresion_bin)) +
-  geom_point(size = 3, alpha = 0.8, na.rm = TRUE) +
-  scale_color_manual(values = c("No" = "#1f77b4", "Sí" = "#d62728")) +
-  scale_shape_manual(values = c("No" = 16, "Sí" = 17)) +
-  labs(
-    title = "CGPA vs Satisfacción según Depresión",
-    x = "CGPA",
-    y = "Study Satisfaction",
-    color = "Depresión",
-    shape = "Depresión"
+    title = "Relación entre género y antecedentes familiares de enfermedad mental",
+    x = "Género",
+    y = "Porcentaje (%)",
+    fill = "Antecedentes familiares"
   ) +
   theme_minimal()
 ```
+
+### 3.4. Relación entre variables categóricas y la depresión
+
+En este apartado nos centramos específicamente en estudiar cómo se relaciona la presencia de depresión (Depression) con distintas variables categóricas del conjunto de datos, tales como el género, las horas de sueño, los hábitos dietéticos o el nivel de estudios.
+
+Nuestro objetivo es identificar diferencias relevantes entre grupos: ¿hay categorías con mayor proporción de estudiantes deprimidos? ¿se observan patrones consistentes según hábitos, características personales o factores académicos?
+
+Para evitar repetir código y facilitar la creación de gráficos comparables, definimos una función genérica que:
+
+-   Agrupa por la variable categórica de interés y por el estado de depresión.
+
+-   Calcula el porcentaje de estudiantes deprimidos y no deprimidos dentro de cada categoría.
+
+-   Devuelve un gráfico de barras apiladas, mostrando de forma clara las diferencias entre grupos.
+
+De esta manera, con una sola función podemos analizar sistemáticamente *“Depresión según X”* para cualquier variable categórica del dataset.
+
+```{r}
+plot_depression_by_cat <- function(data, var_name) {
+  df <- data %>%
+    group_by(.data[[var_name]], Depression) %>%
+    summarise(Numero = n(), .groups = "drop") %>%
+    group_by(.data[[var_name]]) %>%
+    mutate(
+      Porcentaje = 100 * Numero / sum(Numero),
+      Depression_cat = ifelse(Depression == 1, "Depresión", "Sin depresión")
+    )
+
+  ggplot(df, aes(x = .data[[var_name]], y = Porcentaje, fill = Depression_cat)) +
+    geom_col() +
+    labs(
+      title = paste("Porcentaje de estudiantes deprimidos según", var_name),
+      x = var_name,
+      y = "Porcentaje (%)",
+      fill = "Estado"
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+}
+```
+
+Variables categóricas para analizar frente a `Depression`:
+
+```{r}
+vars_dep_cat <- c(
+  "Gender",
+  "City",
+  "Sleep.Duration",
+  "Dietary.Habits",
+  #"Degree",
+  "Have.you.ever.had.suicidal.thoughts..",
+  "Financial.Stress",
+  "Family.History.of.Mental.Illness"
+)
+
+for (v in vars_dep_cat) {
+  print(plot_depression_by_cat(data, v))
+}
+```
+

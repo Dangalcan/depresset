@@ -400,9 +400,29 @@ for (v in vars_dep_cat) {
 }
 ```
 
+## 4. Conclusiones del análisis de visualización
 
+El análisis exploratorio realizado en este cuaderno nos ha permitido obtener una primera comprensión del comportamiento de las variables del dataset y de su relación con la presencia de depresión en estudiantes.
 
+En la **exploración univariante**, hemos observado las distribuciones de las principales variables numéricas (edad, presión académica, rendimiento académico, satisfacción con los estudios y horas de trabajo/estudio) y de las variables categóricas (género, ciudad, horas de sueño, hábitos dietéticos, nivel de estudios, antecedentes familiares, etc.). Esta fase ha sido útil para detectar posibles desbalances entre categorías, rangos de valores frecuentes y la presencia de valores extremos.
 
+En la **exploración bivariante**, hemos estudiado: - La relación entre variables numéricas, comprobando que las correlaciones son en general bajas y que no se aprecian dependencias lineales fuertes entre ellas. - La relación entre las variables numéricas y la depresión, comparando mediante boxplots la distribución de cada variable para estudiantes con y sin depresión. - La relación entre variables categóricas, tanto de forma general (por ejemplo, género y antecedentes familiares de enfermedad mental) como específicamente en función de la presencia de depresión, utilizando gráficos de barras apiladas que muestran el porcentaje de estudiantes deprimidos en cada categoría.
 
+En conjunto, estas visualizaciones proporcionan una base sólida para:
 
+-   Identificar aquellas variables que podrían resultar más relevantes en el modelado posterior.
+-   Detectar posibles problemas de calidad de datos (categorías muy raras, escalas desbalanceadas, variables casi constantes, etc.).
+-   Plantear decisiones de preprocesamiento, como la recodificación o agrupación de niveles en determinadas variables categóricas (por ejemplo, `Degree` o `Financial.Stress`), la posible normalización de variables numéricas o el tratamiento de categorías poco representadas.
 
+En los siguientes cuadernos abordaremos precisamente estas cuestiones, centrándonos en el **preprocesamiento del dataset** y en la aplicación de **técnicas de aprendizaje supervisado y no supervisado** para profundizar en el estudio de la depresión estudiantil a partir de los patrones detectados en esta fase de visualización.
+
+### 4.1. Implicaciones para el preprocesamiento
+
+A partir de las observaciones realizadas en este cuaderno, destacan algunas decisiones que será necesario abordar en la fase de preprocesamiento:
+
+-   **Eliminar las variables** `id`, `Profession` (filtrar antes el dataset por estudiantes), `Work.Pressure` y `Job.Satisfaction` ya que al enfocar el estudio en estudiantes carece de sentido mantener esta variables.
+-   Revisar y **agrupar en otras categorías** variables como `Degree`, con el fin de evitar niveles con muy pocos datos.
+-   Valorar la **recodificación de variables ordinales** como `Financial.Stress` con categorías anómalas.
+-   Analizar el posible impacto de **valores extremos** en variables numéricas (por ejemplo, horas de estudio o edad) y decidir si procede aplicar transformaciones o técnicas de atenuación de outliers.
+
+Estas decisiones se desarrollarán con más detalle en el notebook dedicado al preprocesamiento, donde se formalizarán los pasos necesarios para preparar el conjunto de datos antes de entrenar los modelos de aprendizaje automático.

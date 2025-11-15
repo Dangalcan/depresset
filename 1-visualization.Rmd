@@ -14,7 +14,7 @@ A lo largo de los distintos notebooks que componen este trabajo realizaremos una
 
 Para llevar a cabo este estudio hemos utilizado unos datos de la plataforma [Kaggle](https://www.kaggle.com/) que pueden acceder a través del seguiente enlace: <https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset>
 
-## Visualización
+# Visualización
 
 En este cuaderno nos centraremos exclusivamente en la fase de **visualización de los datos**. Esta etapa es imprescindible antes de abordar cualquier proceso analítico más complejo, ya que permite comprender la estructura del dataset, detectar posibles valores anómalos, identificar distribuciones relevantes y observar relaciones entre variables. Una buena visualización inicial nos ayuda a formular hipótesis, seleccionar técnicas adecuadas para el modelado posterior y, en general, a entender mejor el problema al que nos enfrentamos.
 
@@ -23,19 +23,26 @@ A través de distintos gráficos y transformaciones básicas analizaremos tanto 
 Antes de comenzar, vamos a importar las librerías que nos van a hacer falta en este notebook.
 
 ```{r}
+#install.packages("ggplot2")
+library(ggplot2)
+
+#install.packages("patchwork")
+library(patchwork)
+
+#install.packages("dplyr")
+library(dplyr)
+
 #library(readr)
 #library(tidyr)
 #library(tidyverse)
-#library(dplyr)
-#library(ggplot2)
 #library(lubridate)
 #library(gapminder)
 #library(plotly)
 ```
 
-### 1. Lectura del dataset
+## 1. Lectura del dataset
 
-Se lee el archivo CSV `student_depression_dataset` que se encuentra en la carpeta `data`.
+Leemos el archivo CSV `student_depression_dataset` que se encuentra en la carpeta `data`.
 
 ```{r}
 data <- read.csv("./data/student_depression_dataset.csv", sep=",")
@@ -48,7 +55,7 @@ Obtenemos una descripción más clara de su estructura interna: tipos de variabl
 str(data)
 ```
 
-Obtener una primera descripción general del conjunto de datos.
+Obtenemos una primera descripción general del conjunto de datos.
 
 ```{r}
 summary(data)
@@ -60,29 +67,139 @@ Detectamos si existen valores faltantes en el conjunto de datos.
 colSums(is.na(data))
 ```
 
+## 2. Exploración univariante
 
-### 2. 
+En esta sección realizaremos un análisis individual de cada variable del dataset con el objetivo de comprender su distribución y características principales antes de estudiar relaciones más complejas.
 
+Antes de comenzar con las representaciones gráficas, realizamos algunos pasos previos de preparación.
 
+### 2.1. Limpieza inicial y selección de variables útiles
 
+La columna `Profession` indica la ocupación del participante. Dado que prácticamente todos los registros corresponden a estudiantes, filtramos únicamente aquellas observaciones donde `Profession == "Student"`. Una vez realizado el filtrado, esta variable deja de aportar información, por lo que la eliminamos junto con otras columnas que tampoco resultan útiles para el análisis:
 
+-   `id`: identificador sin utilidad analítica.
+-   `Work.Pressure`: constante en estudiantes (valor 0 en todos los casos).
+-   `Job.Satisfaction`: constante en estudiantes (valor 0 en todos los casos).
 
+```{r}
+data <- subset(data, Profession == "Student")
+data <- data[, !(names(data) %in% c("Profession", "Work.Pressure", "id", "Job.Satisfaction")) ]
+head(data)
+```
 
+### 2.2 Identificación de variables numéricas y categóricas
 
+Tras la limpieza, realizamos una clasificación manual de las variables según su naturaleza real. Esto es importante porque algunas aparecen como numéricas pero representan categorías (por ejemplo, variables booleanas).
 
+```{r}
+numeric_vars <- c(
+  "Age",
+  "Academic.Pressure",
+  "CGPA",
+  "Study.Satisfaction",
+  "Work.Study.Hours"
+)
 
+categorical_vars <- c(
+  "Gender",
+  "City",
+  "Sleep.Duration",
+  "Dietary.Habits",
+  "Degree",
+  "Have.you.ever.had.suicidal.thoughts..",
+  "Financial.Stress",
+  "Family.History.of.Mental.Illness",
+  "Depression"
+)
+```
 
+### 2.3. Exploración univariante de variables numéricas
 
+Para analizar la distribución de las variables numéricas del dataset utilizamos histogramas y boxplots. Estos gráficos permiten visualizar de manera clara la forma de la distribución, la presencia de valores extremos y el rango de cada variable.
 
+A continuación generamos para cada variable un **histograma** y un **boxplot**:
 
+```{r}
+for (var in numeric_vars) {
+  # histograma
+  p1 <- ggplot(data, aes(x = .data[[var]])) +
+    geom_histogram(bins = 20, fill = "#69b3a2", color = "white") +
+    labs(x = var, y = "Frecuencia")
+  # boxplot
+  p2 <- ggplot(data, aes(y = .data[[var]])) +
+    geom_boxplot(fill = "#FFBF00") +
+    labs(y = var)
+  # hist + boxplot
+  print(
+    (p1 | p2) +
+      plot_annotation(
+        title = paste("Visualización univariante de", var),
+        theme = theme(plot.title = element_text(hjust = 0.5))
+      )
+  )
+}
+```
 
+### 2.4. Exploración univariante de variables categóricas
 
+Las variables categóricas representan grupos, respuestas o niveles, por lo que resulta fundamental analizar la frecuencia con la que aparece cada categoría. Esto nos permite detectar desbalances importantes, categorías poco representadas o patrones interesantes en la distribución de respuestas.
 
+Dependiendo del número de categorías que tenga cada variable, utilizamos dos tipos de visualizaciones:
 
+-   **Diagrama de sectores** (pie chart) cuando la variable tiene seis o menos categorías, ya que permite observar con claridad las proporciones relativas.
 
+-   **Diagrama de barras** cuando la variable posee más de seis categorías, evitando gráficos circulares difíciles de interpretar y asegurando una lectura más clara.
 
+```{r}
+for (var in categorical_vars) {
+  # num categorías de la variable
+  n_cats <- length(unique(data[[var]]))
+  # pie chart (si <= 6 niveles), sino diagrama de barras
+  if (n_cats <= 6) {
+    df <- data %>%
+      group_by(.data[[var]]) %>%
+      summarise(freq = n()) %>%
+      mutate(
+        prop = freq / sum(freq),
+        Label = paste0(round(prop * 100), "%")
+      )
+    
+    p <- ggplot(df, aes(x = "", y = prop, fill = .data[[var]])) +
+      geom_col(color = "white") +
+      geom_label(
+        aes(label = Label), 
+        position = position_stack(vjust = 0.5),
+        show.legend = FALSE
+      ) +
+      coord_polar(theta = "y") +
+      labs(
+        title = paste("Distribución de", var),
+        fill = var
+      ) +
+      theme_void() +
+      theme(plot.title = element_text(hjust = 0.5))
+    
+    print(p)
+    
+  } else {
+    p <- ggplot(data, aes(x = .data[[var]])) +
+      geom_bar(fill = "#6495ED") +
+      labs(
+        title = paste("Distribución de", var),
+        x = var,
+        y = "Frecuencia"
+      ) +
+      theme(
+        axis.text.x = element_text(angle = 90, hjust = 1),
+        plot.title = element_text(hjust = 0.5)
+      )
+    
+    print(p)
+  }
+}
+```
 
-
+## 3. Exploración bivariante
 
 
 
@@ -140,26 +257,6 @@ colSums(is.na(data))
 
 ```
 
-### Depresión por profesión
-
-```{r}
-
-profesions <- data %>%
-  group_by(Profession) %>%
-  summarise(Count = n())
-
-profesions
-
-ggplot(profesions, aes(x = reorder(Profession, -Count), y = Count)) +
-  geom_bar(stat = "identity", fill = "coral") +
-  labs(title = "Número de Personas por Profesión",
-       x = "Profesión",
-       y = "Número de Personas") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
-
 ### Depresión por ciudad
 
 ```{r}
@@ -182,24 +279,6 @@ ggplot(depresion_por_ciudades, aes(x = reorder(City, -Numero_Estudiantes_Deprimi
 
 ```
 
-### Depresión por sexo en estudiantes
-
-```{r}
-depresion_por_sexo <- data %>%
-  filter(Profession == "Student") %>%
-  group_by(Gender) %>%
-  summarise(
-    Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
-    Numero_Estudiantes_No_Deprimidos = sum(Depression == 0, na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = Numero_Estudiantes_Deprimidos + Numero_Estudiantes_No_Deprimidos,
-    Porcentaje_Deprimidos = 100 * Numero_Estudiantes_Deprimidos / Total,
-    Porcentaje_No_Deprimidos = 100 * Numero_Estudiantes_No_Deprimidos / Total
-  )
-
-depresion_por_sexo
-```
 
 ### Depresión por nivel de estudios en estudiantes
 

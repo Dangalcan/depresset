@@ -258,7 +258,7 @@ En resumen: la presión académica no parece influir de manera significativa en 
 
 En este apartado analizamos cómo varían las variables numéricas en función del estado de depresión (`Depression`). De esta forma podemos estudiar, por ejemplo, si los estudiantes con depresión tienden a tener menor rendimiento académico, menor satisfacción o diferentes patrones de horas de estudio.
 
-Para ello representamos, mediante boxplots, la distribución de cada variable numérica separando entre estudiantes con y sin depresión.
+Para ello representamos, mediante **boxplots**, la distribución de cada variable numérica separando entre estudiantes con y sin depresión.
 
 ```{r}
 data_bi <- data %>%
@@ -277,6 +277,19 @@ for (var in numeric_vars) {
     ) +
     theme_minimal()
 
+  print(p)
+}
+```
+
+Complementaremos este análisis con **gráficos de violín** (violin plots), que son visualizaciones más avanzadas. Los violines permiten observar no solo la mediana y la dispersión, sino también la forma completa de la distribución, mostrando zonas de mayor o menor concentración de datos. Esto ofrece una perspectiva más rica y detallada que los boxplots tradicionales, especialmente útil para detectar patrones asociados a la depresión.
+
+```{r}
+for (var in numeric_vars) {
+  p <- ggplot(data_bi, aes(x=Depression_cat, y=.data[[var]],fill=Depression_cat))+
+    geom_violin(alpha = 0.7, color = NA) +
+    geom_boxplot(width = 0.1, outlier.shape = NA, alpha = 0.7) +
+    labs(title = paste("Distribución de", var, "según depresión")) +
+    theme_minimal()
   print(p)
 }
 ```
@@ -386,4 +399,10 @@ for (v in vars_dep_cat) {
   print(plot_depression_by_cat(data, v))
 }
 ```
+
+
+
+
+
+
 

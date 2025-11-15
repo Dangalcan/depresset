@@ -48,7 +48,7 @@ summary(data)
 
 ```
 
-# Preprocesado
+# Preprocesamiento
 
 Como hay columnas que tienen variables con valores: "Yes" y "No", vamos a cambiar las columnas para que sus valores sean 1 en caso de "Yes" y 0 en caso de "No"
 

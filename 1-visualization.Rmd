@@ -1,42 +1,99 @@
 ---
-title: "Depresset. Grupo 5. Visualización"
-author: "Daniel Galván Cancio, Daniel Vela Camacho, Jaime Linares Barrera, Miguel Encina Martinez"
+title: "Estudio sobre la depresión estudiantil. Grupo 5. Visualización"
+author: "Miguel Encina Martinez, Daniel Galván Cancio, Jaime Linares Barrera, Daniel Vela Camacho"
 output: html_document
 ---
 
-## Dataset escogido
+# Estudio sobre la depresión estudiantil
 
-Student depression: https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset
+La salud mental estudiantil se ha convertido en una de las principales preocupaciones dentro del ámbito académico y social en los últimos años. La presión por obtener buenos resultados, la inestabilidad emocional propia de la etapa formativa, la carga de trabajo, el estrés, la falta de apoyo y otros factores externos han provocado que la depresión en estudiantes aumente de forma notable. Comprender las causas, patrones y factores asociados a este fenómeno resulta fundamental tanto para diseñar programas de prevención como para desarrollar intervenciones tempranas que mejoren el bienestar del alumnado.
 
+El estudio de la depresión estudiantil mediante técnicas de análisis de datos permite identificar tendencias que no siempre son evidentes a simple vista. A través de la exploración y modelización de datos podemos descubrir relaciones entre variables, detectar perfiles de riesgo y analizar el impacto de ciertos hábitos o situaciones personales sobre la salud mental. Este proyecto tiene como objetivo profundizar en dichos aspectos utilizando un conjunto de datos real y aplicar herramientas propias de la ingeniería de datos para obtener conclusiones fundamentadas.
 
-# Proyecto sobre la depresión estudiantil
+A lo largo de los distintos notebooks que componen este trabajo realizaremos una exploración completa del dataset, empezando por una visualización inicial, pasando por procesos de limpieza y preprocesamiento y, finalmente, aplicando técnicas de aprendizaje supervisado y no supervisado que nos permitirán extraer conocimiento de forma rigurosa. El propósito final no es únicamente obtener resultados numéricos, sino también reflexionar sobre cómo el análisis de datos puede contribuir a mejorar la detección y comprensión de problemas de salud mental en entornos educativos.
+
+Para llevar a cabo este estudio hemos utilizado unos datos de la plataforma [Kaggle](https://www.kaggle.com/) que pueden acceder a través del seguiente enlace: <https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset>
+
+## Visualización
+
+En este cuaderno nos centraremos exclusivamente en la fase de **visualización de los datos**. Esta etapa es imprescindible antes de abordar cualquier proceso analítico más complejo, ya que permite comprender la estructura del dataset, detectar posibles valores anómalos, identificar distribuciones relevantes y observar relaciones entre variables. Una buena visualización inicial nos ayuda a formular hipótesis, seleccionar técnicas adecuadas para el modelado posterior y, en general, a entender mejor el problema al que nos enfrentamos.
+
+A través de distintos gráficos y transformaciones básicas analizaremos tanto variables numéricas como categóricas, exploraremos patrones y estudiaremos visualmente qué factores podrían estar asociados a mayores niveles de depresión en estudiantes. Esta primera aproximación servirá de base para los siguientes notebooks, donde continuaremos profundizando en la calidad de los datos, su preprocesamiento y su uso en algoritmos de aprendizaje automático.
+
+Antes de comenzar, vamos a importar las librerías que nos van a hacer falta en este notebook.
 
 ```{r}
-  library(readr)
-  library(tidyr)
-  library(tidyverse)
-  library(dplyr)
-  library(ggplot2)
-  library(lubridate)
-  library(gapminder)
-  library(plotly)
+#library(readr)
+#library(tidyr)
+#library(tidyverse)
+#library(dplyr)
+#library(ggplot2)
+#library(lubridate)
+#library(gapminder)
+#library(plotly)
+```
 
+### 1. Lectura del dataset
+
+Se lee el archivo CSV `student_depression_dataset` que se encuentra en la carpeta `data`.
+
+```{r}
+data <- read.csv("./data/student_depression_dataset.csv", sep=",")
+head(data)
+```
+
+Obtenemos una descripción más clara de su estructura interna: tipos de variables, número de columnas, categorías en variables cualitativas, etc.
+
+```{r}
+str(data)
+```
+
+Obtener una primera descripción general del conjunto de datos.
+
+```{r}
+summary(data)
+```
+
+Detectamos si existen valores faltantes en el conjunto de datos.
+
+```{r}
+colSums(is.na(data))
 ```
 
 
+### 2. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Depresión por sexo
+
 ```{r}
-  # leer el csv
-  ds <- read.csv("./data/student_depression_dataset.csv",sep=",")
-  head(ds)
-  dim(ds)
 
-```
-
-## Depresión por sexo
-
-```{r}
-
-  depresion_por_sexo <- ds %>%
+  depresion_por_sexo <- data %>%
   group_by(Gender) %>%
   summarise(
     Numero_Estudiantes_Deprimidos = sum(Depression == 1, na.rm = TRUE),
@@ -83,11 +140,11 @@ Student depression: https://www.kaggle.com/datasets/adilshamim8/student-depressi
 
 ```
 
-## Depresión por profesión
+### Depresión por profesión
 
 ```{r}
 
-profesions <- ds %>%
+profesions <- data %>%
   group_by(Profession) %>%
   summarise(Count = n())
 
@@ -103,11 +160,11 @@ ggplot(profesions, aes(x = reorder(Profession, -Count), y = Count)) +
 
 ```
 
-## Depresión por ciudad
+### Depresión por ciudad
 
 ```{r}
 
-depresion_por_ciudades <- ds %>%
+depresion_por_ciudades <- data %>%
   filter(Depression == 1 & Profession == "Student") %>%
   group_by(City) %>%
   summarise(Numero_Estudiantes_Deprimidos = n()) %>%
@@ -124,10 +181,11 @@ ggplot(depresion_por_ciudades, aes(x = reorder(City, -Numero_Estudiantes_Deprimi
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
-## Depresión por sexo en estudiantes
+
+### Depresión por sexo en estudiantes
 
 ```{r}
-depresion_por_sexo <- ds %>%
+depresion_por_sexo <- data %>%
   filter(Profession == "Student") %>%
   group_by(Gender) %>%
   summarise(
@@ -143,13 +201,13 @@ depresion_por_sexo <- ds %>%
 depresion_por_sexo
 ```
 
-## Depresión por nivel de estudios en estudiantes
+### Depresión por nivel de estudios en estudiantes
 
 Hemos encontrado que la variable nivel de estudios tiene distintos valores, por lo que en el preprocesado deberemos abordar esto unificando unos valores categóricos con orden
 
 ```{r}
 
-depresion_por_nivel_estudio <- ds %>%
+depresion_por_nivel_estudio <- data %>%
   filter(Profession == "Student") %>%
   group_by(Degree) %>%
   summarise(
@@ -164,10 +222,11 @@ depresion_por_nivel_estudio <- ds %>%
   
 depresion_por_nivel_estudio
 ```
-# Depresión por edad 
+
+### Depresión por edad
 
 ```{r}
-depresion_por_edad <- ds %>%
+depresion_por_edad <- data %>%
   filter(Profession == "Student") %>%
   group_by(Age) %>%
   summarise(
@@ -209,10 +268,10 @@ ggplot(depresion_long, aes(x = Age, y = Porcentaje, fill = Estado)) +
   
 ```
 
-## Depresión por horas de sueño
+### Depresión por horas de sueño
 
 ```{r}
-  depresion_por_horas_sueño <- ds %>%
+  depresion_por_horas_sueño <- data %>%
   filter(Profession == "Student") %>%
   group_by(Sleep.Duration) %>%
   summarise(
@@ -226,10 +285,11 @@ ggplot(depresion_long, aes(x = Age, y = Porcentaje, fill = Estado)) +
   )
 depresion_por_horas_sueño
 ```
-## Depresión por nivel de estudios 
+
+### Depresión por nivel de estudios
 
 ```{r}
-depresion_por_nivel_estudio <- ds %>%
+depresion_por_nivel_estudio <- data %>%
   filter(Profession == "Student") %>%
   group_by(Age) %>%
   summarise(
@@ -244,7 +304,7 @@ depresion_por_nivel_estudio <- ds %>%
   
 depresion_por_nivel_estudio
 
-depresion_por_nivel_estudio <- ds %>%
+depresion_por_nivel_estudio <- data %>%
   filter(Profession == "Student") %>%
   group_by(Degree) %>%
   summarise(
@@ -666,7 +726,7 @@ plot_ly(depresion_por_barch, labels = ~c('Deprimidos', 'No Deprimidos'),
 ```{r}
 # Scatterplot para ver la  relación entre el rendimiento académico, la satisfacción académica y la depresión
 # Primero, crea la variable Depresion_bin
-df_procesado <- ds %>%
+data_procesado <- data %>%
   dplyr::mutate(
     Depresion_bin = ifelse(!is.na(Depression), as.character(Depression),
       ifelse(!is.na(Depression.Score) & Depression.Score >= 10, "1", "0")
@@ -675,7 +735,7 @@ df_procesado <- ds %>%
   )
 
 # Luego, crea el gráfico (en un bloque SEPARADO)
-ggplot(df_procesado, aes(x = CGPA, y = Study.Satisfaction, color = Depresion_bin, shape = Depresion_bin)) +
+ggplot(data_procesado, aes(x = CGPA, y = Study.Satisfaction, color = Depresion_bin, shape = Depresion_bin)) +
   geom_point(size = 3, alpha = 0.8, na.rm = TRUE) +
   scale_color_manual(values = c("No" = "#1f77b4", "Sí" = "#d62728")) +
   scale_shape_manual(values = c("No" = 16, "Sí" = 17)) +

@@ -1,7 +1,11 @@
 ---
 title: "Estudio sobre la depresión estudiantil. Grupo 5. Visualización"
 author: "Miguel Encina Martinez, Daniel Galván Cancio, Jaime Linares Barrera, Daniel Vela Camacho"
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    # number_sections: true
 ---
 
 # Estudio sobre la depresión estudiantil

@@ -1486,47 +1486,27 @@ Linares Barrera, Daniel Vela Camacho</h4>
 </div>
 
 
-<div id="estudio-sobre-la-depresión-estudiantil" class="section level1">
-<h1>Estudio sobre la depresión estudiantil</h1>
-<p>La salud mental estudiantil se ha convertido en una de las
-principales preocupaciones dentro del ámbito académico y social en los
-últimos años. La presión por obtener buenos resultados, la inestabilidad
-emocional propia de la etapa formativa, la carga de trabajo, el estrés,
-la falta de apoyo y otros factores externos han provocado que la
-depresión en estudiantes aumente de forma notable. Comprender las
-causas, patrones y factores asociados a este fenómeno resulta
-fundamental tanto para diseñar programas de prevención como para
-desarrollar intervenciones tempranas que mejoren el bienestar del
-alumnado.</p>
-<p>El estudio de la depresión estudiantil mediante técnicas de análisis
-de datos permite identificar tendencias que no siempre son evidentes a
-simple vista. A través de la exploración y modelización de datos podemos
-descubrir relaciones entre variables, detectar perfiles de riesgo y
-analizar el impacto de ciertos hábitos o situaciones personales sobre la
-salud mental. Este proyecto tiene como objetivo profundizar en dichos
-aspectos utilizando un conjunto de datos real y aplicar herramientas
-propias de la ingeniería de datos para obtener conclusiones
-fundamentadas.</p>
-<p>A lo largo de los distintos notebooks que componen este trabajo
-realizaremos una exploración completa del dataset, empezando por una
-visualización inicial, pasando por procesos de limpieza y
-preprocesamiento y, finalmente, aplicando técnicas de aprendizaje
-supervisado y no supervisado que nos permitirán extraer conocimiento de
-forma rigurosa. El propósito final no es únicamente obtener resultados
-numéricos, sino también reflexionar sobre cómo el análisis de datos
-puede contribuir a mejorar la detección y comprensión de problemas de
-salud mental en entornos educativos.</p>
-<p>Para llevar a cabo este estudio hemos utilizado unos datos de la
-plataforma <a href="https://www.kaggle.com/">Kaggle</a> que pueden
-acceder a través del seguiente enlace: <a href="https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset" class="uri">https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset</a></p>
-</div>
 <div id="preprocesamiento" class="section level1">
 <h1>Preprocesamiento</h1>
-<p>’‘’TODO: Descripción apartado’’’</p>
+<p>En este apartado vamos a realizar las transformaciones necesarias
+para dejar nuestro dataset listo para análisis más avanzados y modelado
+predictivo. Entre las tareas principales se incluyen:</p>
+<ul>
+<li><p>Filtrado de participantes que no sean estudiantes.</p></li>
+<li><p>Eliminación de columnas irrelevantes.</p></li>
+<li><p>Recodificación de variables categóricas binarias (“Yes”/“No”) a
+numéricas.</p></li>
+<li><p>Discretización y codificación de variables ordinales, como la
+duración del sueño.</p></li>
+<li><p>Posible agrupación o recodificación de variables con niveles poco
+representativos.</p></li>
+<li><p>Identificación y tratamiento de valores extremos en variables
+numéricas.</p></li>
+</ul>
 <p>Antes de comenzar, vamos a importar las librerías que nos van a hacer
 falta en este notebook.</p>
-<pre class="r"><code>#install.packages(&quot;dplyr&quot;)
-library(dplyr)</code></pre>
+<pre class="r"><code>  #install.packages(&quot;dplyr&quot;)
+  library(dplyr)</code></pre>
 <pre><code>## 
 ## Adjuntando el paquete: &#39;dplyr&#39;</code></pre>
 <pre><code>## The following objects are masked from &#39;package:stats&#39;:
@@ -1539,8 +1519,8 @@ library(dplyr)</code></pre>
 <h2>1. Lectura del dataset</h2>
 <p>Leemos el archivo CSV <code>student_depression_dataset</code> que se
 encuentra en la carpeta <code>data</code>.</p>
-<pre class="r"><code>data &lt;- read.csv(&quot;./data/student_depression_dataset.csv&quot;, sep=&quot;,&quot;)
-head(data)</code></pre>
+<pre class="r"><code>  data &lt;- read.csv(&quot;./data/student_depression_dataset.csv&quot;, sep=&quot;,&quot;)
+  head(data)</code></pre>
 <pre><code>##   id Gender Age          City Profession Academic.Pressure Work.Pressure CGPA
 ## 1  2   Male  33 Visakhapatnam    Student                 5             0 8.97
 ## 2  8 Female  24     Bangalore    Student                 2             0 5.90
@@ -1569,145 +1549,102 @@ head(data)</code></pre>
 ## 4              5.0                              Yes          1
 ## 5              1.0                               No          0
 ## 6              1.0                               No          0</code></pre>
-<pre class="r"><code># Ver estructura y tipos de datos
-str(data)</code></pre>
-<pre><code>## &#39;data.frame&#39;:    27901 obs. of  18 variables:
-##  $ id                                   : int  2 8 26 30 32 33 52 56 59 62 ...
-##  $ Gender                               : chr  &quot;Male&quot; &quot;Female&quot; &quot;Male&quot; &quot;Female&quot; ...
-##  $ Age                                  : num  33 24 31 28 25 29 30 30 28 31 ...
-##  $ City                                 : chr  &quot;Visakhapatnam&quot; &quot;Bangalore&quot; &quot;Srinagar&quot; &quot;Varanasi&quot; ...
-##  $ Profession                           : chr  &quot;Student&quot; &quot;Student&quot; &quot;Student&quot; &quot;Student&quot; ...
-##  $ Academic.Pressure                    : num  5 2 3 3 4 2 3 2 3 2 ...
-##  $ Work.Pressure                        : num  0 0 0 0 0 0 0 0 0 0 ...
-##  $ CGPA                                 : num  8.97 5.9 7.03 5.59 8.13 5.7 9.54 8.04 9.79 8.38 ...
-##  $ Study.Satisfaction                   : num  2 5 5 2 3 3 4 4 1 3 ...
-##  $ Job.Satisfaction                     : num  0 0 0 0 0 0 0 0 0 0 ...
-##  $ Sleep.Duration                       : chr  &quot;&#39;5-6 hours&#39;&quot; &quot;&#39;5-6 hours&#39;&quot; &quot;&#39;Less than 5 hours&#39;&quot; &quot;&#39;7-8 hours&#39;&quot; ...
-##  $ Dietary.Habits                       : chr  &quot;Healthy&quot; &quot;Moderate&quot; &quot;Healthy&quot; &quot;Moderate&quot; ...
-##  $ Degree                               : chr  &quot;B.Pharm&quot; &quot;BSc&quot; &quot;BA&quot; &quot;BCA&quot; ...
-##  $ Have.you.ever.had.suicidal.thoughts..: chr  &quot;Yes&quot; &quot;No&quot; &quot;No&quot; &quot;Yes&quot; ...
-##  $ Work.Study.Hours                     : num  3 3 9 4 1 4 1 0 12 2 ...
-##  $ Financial.Stress                     : chr  &quot;1.0&quot; &quot;2.0&quot; &quot;1.0&quot; &quot;5.0&quot; ...
-##  $ Family.History.of.Mental.Illness     : chr  &quot;No&quot; &quot;Yes&quot; &quot;Yes&quot; &quot;Yes&quot; ...
-##  $ Depression                           : int  1 0 0 1 0 0 0 0 1 1 ...</code></pre>
-<pre class="r"><code># Nombres de columnas
-colnames(data)</code></pre>
-<pre><code>##  [1] &quot;id&quot;                                   
-##  [2] &quot;Gender&quot;                               
-##  [3] &quot;Age&quot;                                  
-##  [4] &quot;City&quot;                                 
-##  [5] &quot;Profession&quot;                           
-##  [6] &quot;Academic.Pressure&quot;                    
-##  [7] &quot;Work.Pressure&quot;                        
-##  [8] &quot;CGPA&quot;                                 
-##  [9] &quot;Study.Satisfaction&quot;                   
-## [10] &quot;Job.Satisfaction&quot;                     
-## [11] &quot;Sleep.Duration&quot;                       
-## [12] &quot;Dietary.Habits&quot;                       
-## [13] &quot;Degree&quot;                               
-## [14] &quot;Have.you.ever.had.suicidal.thoughts..&quot;
-## [15] &quot;Work.Study.Hours&quot;                     
-## [16] &quot;Financial.Stress&quot;                     
-## [17] &quot;Family.History.of.Mental.Illness&quot;     
-## [18] &quot;Depression&quot;</code></pre>
-<pre class="r"><code># Resumen estadístico
-summary(data)</code></pre>
-<pre><code>##        id            Gender               Age            City          
-##  Min.   :     2   Length:27901       Min.   :18.00   Length:27901      
-##  1st Qu.: 35039   Class :character   1st Qu.:21.00   Class :character  
-##  Median : 70684   Mode  :character   Median :25.00   Mode  :character  
-##  Mean   : 70442                      Mean   :25.82                     
-##  3rd Qu.:105818                      3rd Qu.:30.00                     
-##  Max.   :140699                      Max.   :59.00                     
-##   Profession        Academic.Pressure Work.Pressure            CGPA       
-##  Length:27901       Min.   :0.000     Min.   :0.0000000   Min.   : 0.000  
-##  Class :character   1st Qu.:2.000     1st Qu.:0.0000000   1st Qu.: 6.290  
-##  Mode  :character   Median :3.000     Median :0.0000000   Median : 7.770  
-##                     Mean   :3.141     Mean   :0.0004301   Mean   : 7.656  
-##                     3rd Qu.:4.000     3rd Qu.:0.0000000   3rd Qu.: 8.920  
-##                     Max.   :5.000     Max.   :5.0000000   Max.   :10.000  
-##  Study.Satisfaction Job.Satisfaction   Sleep.Duration     Dietary.Habits    
-##  Min.   :0.000      Min.   :0.000000   Length:27901       Length:27901      
-##  1st Qu.:2.000      1st Qu.:0.000000   Class :character   Class :character  
-##  Median :3.000      Median :0.000000   Mode  :character   Mode  :character  
-##  Mean   :2.944      Mean   :0.000681                                        
-##  3rd Qu.:4.000      3rd Qu.:0.000000                                        
-##  Max.   :5.000      Max.   :4.000000                                        
-##     Degree          Have.you.ever.had.suicidal.thoughts.. Work.Study.Hours
-##  Length:27901       Length:27901                          Min.   : 0.000  
-##  Class :character   Class :character                      1st Qu.: 4.000  
-##  Mode  :character   Mode  :character                      Median : 8.000  
-##                                                           Mean   : 7.157  
-##                                                           3rd Qu.:10.000  
-##                                                           Max.   :12.000  
-##  Financial.Stress   Family.History.of.Mental.Illness   Depression    
-##  Length:27901       Length:27901                     Min.   :0.0000  
-##  Class :character   Class :character                 1st Qu.:0.0000  
-##  Mode  :character   Mode  :character                 Median :1.0000  
-##                                                      Mean   :0.5855  
-##                                                      3rd Qu.:1.0000  
-##                                                      Max.   :1.0000</code></pre>
 </div>
 </div>
-<div id="preprocesamiento-1" class="section level1">
-<h1>Preprocesamiento</h1>
+<div id="filtrado-y-eliminación-de-columnas-innecesarias" class="section level1">
+<h1>1. Filtrado y eliminación de columnas innecesarias</h1>
+<p>Como la mayoría de participantes son estudiantes, filtramos aquellas
+filas que no lo sean y eliminamos columnas irrelevantes para nuestro
+análisis:</p>
+<pre class="r"><code>  df_procesado &lt;- data %&gt;%
+  filter(Profession == &quot;Student&quot;) %&gt;%
+  select(-c(Profession, id, Work.Pressure, Job.Satisfaction))</code></pre>
 <p>Como hay columnas que tienen variables con valores: “Yes” y “No”,
 vamos a cambiar las columnas para que sus valores sean 1 en caso de
 “Yes” y 0 en caso de “No”</p>
-<pre class="r"><code>data &lt;- data %&gt;%
+<pre class="r"><code>  df_procesado &lt;- df_procesado %&gt;%
   mutate(
-    Have.you.ever.had.suicidal.thoughts.. = ifelse(Have.you.ever.had.suicidal.thoughts.. == &quot;Yes&quot;, 1, 0),
-    Family.History.of.Mental.Illness = ifelse(Family.History.of.Mental.Illness == &quot;Yes&quot;, 1, 0)
+  Have.you.ever.had.suicidal.thoughts.. = ifelse(Have.you.ever.had.suicidal.thoughts.. == &quot;Yes&quot;, 1, 0),
+  Family.History.of.Mental.Illness = ifelse(Family.History.of.Mental.Illness == &quot;Yes&quot;, 1, 0)
   )</code></pre>
-<p>Además, como la mayoría de filas son de estudiantes, vamos a eliminar
-la profesión y vamos a eliminar aquellas filas cuya profesión sea
-distinta de “Student”</p>
-<pre class="r"><code>str(unique(data$Profession))</code></pre>
-<pre><code>##  chr [1:14] &quot;Student&quot; &quot;&#39;Civil Engineer&#39;&quot; &quot;Architect&quot; &quot;&#39;UX/UI Designer&#39;&quot; ...</code></pre>
-<p>Como las horas de sueño tienen valores categóricos que tienen cierto
+<pre class="r"><code>  head(df_procesado)</code></pre>
+<pre><code>##   Gender Age          City Academic.Pressure CGPA Study.Satisfaction
+## 1   Male  33 Visakhapatnam                 5 8.97                  2
+## 2 Female  24     Bangalore                 2 5.90                  5
+## 3   Male  31      Srinagar                 3 7.03                  5
+## 4 Female  28      Varanasi                 3 5.59                  2
+## 5 Female  25        Jaipur                 4 8.13                  3
+## 6   Male  29          Pune                 2 5.70                  3
+##        Sleep.Duration Dietary.Habits  Degree
+## 1         &#39;5-6 hours&#39;        Healthy B.Pharm
+## 2         &#39;5-6 hours&#39;       Moderate     BSc
+## 3 &#39;Less than 5 hours&#39;        Healthy      BA
+## 4         &#39;7-8 hours&#39;       Moderate     BCA
+## 5         &#39;5-6 hours&#39;       Moderate  M.Tech
+## 6 &#39;Less than 5 hours&#39;        Healthy     PhD
+##   Have.you.ever.had.suicidal.thoughts.. Work.Study.Hours Financial.Stress
+## 1                                     1                3              1.0
+## 2                                     0                3              2.0
+## 3                                     0                9              1.0
+## 4                                     1                4              5.0
+## 5                                     1                1              1.0
+## 6                                     0                4              1.0
+##   Family.History.of.Mental.Illness Depression
+## 1                                0          1
+## 2                                1          0
+## 3                                1          0
+## 4                                1          1
+## 5                                0          0
+## 6                                0          0</code></pre>
+</div>
+<div id="codificación-de-variables-ordinales" class="section level1">
+<h1>3. Codificación de variables ordinales</h1>
+<p>La duración del sueño es una variable ordinal con categorías claras.
+Como las horas de sueño tienen valores categóricos que tienen cierto
 orden, vamos a discretizarlas. Hay un problema con esta vairable ya que
 al acotarlo en el intervalo, uno de los valores posible (Others) no
 tenía doble comillas. Además, vamos a eliminar aquellas filas cuyo valor
 en esa columna sea “Others”</p>
-<pre class="r"><code>#Definimos los niveles de sueño de manera ordenada
-sleep_order &lt;- c(
+<pre class="r"><code># Definimos los niveles de sueño de manera ordenada, excluyendo &quot;Others&quot;
+
+  sleep_order &lt;- c(
   &quot;&#39;Less than 5 hours&#39;&quot;,
   &quot;&#39;5-6 hours&#39;&quot;,
   &quot;&#39;7-8 hours&#39;&quot;,
-  &quot;&#39;More than 8 hours&#39;&quot;,
-  &quot;Others&quot;
-)
-
-df_procesado &lt;- data %&gt;%
-  mutate(
-    # Paso A: Creamos el Factor Ordenado
-    Duracion_Sueno_Factor = factor(data$Sleep.Duration,
-      levels = sleep_order,
-      ordered = TRUE
-    ),
-
-    # Paso B: Creamos la versión Numérica (del Factor)
-    Duracion_Sueno_Num = as.numeric(Duracion_Sueno_Factor)
+  &quot;&#39;More than 8 hours&#39;&quot;
   )
 
-df_procesado %&gt;%
-  # Agrupamos por la columna original, el factor y el número
+df_procesado &lt;- data %&gt;%
+
+# Eliminamos filas donde Sleep.Duration sea &quot;Others&quot;
+
+  filter(Sleep.Duration != &quot;Others&quot;) %&gt;%
+  mutate(
+  # Paso A: Creamos el Factor Ordenado
+  Duracion_Sueno_Factor = factor(Sleep.Duration,
+  levels = sleep_order,
+  ordered = TRUE),
+  # Paso B: Creamos la versión Numérica (del Factor)
+  Duracion_Sueno_Num = as.numeric(Duracion_Sueno_Factor)
+  )
+
+# Comprobamos la codificación
+
+  df_procesado %&gt;%
   group_by(
-    Original = Sleep.Duration,
-    Factor_Ordenado = Duracion_Sueno_Factor,
-    Numero_Codificado = Duracion_Sueno_Num
+  Original = Sleep.Duration,
+  Factor_Ordenado = Duracion_Sueno_Factor,
+  Numero_Codificado = Duracion_Sueno_Num
   ) %&gt;%
-  # Contamos cuántos hay de cada uno
   count()</code></pre>
-<pre><code>## # A tibble: 5 × 4
-## # Groups:   Original, Factor_Ordenado, Numero_Codificado [5]
+<pre><code>## # A tibble: 4 × 4
+## # Groups:   Original, Factor_Ordenado, Numero_Codificado [4]
 ##   Original            Factor_Ordenado     Numero_Codificado     n
 ##   &lt;chr&gt;               &lt;ord&gt;                           &lt;dbl&gt; &lt;int&gt;
 ## 1 &#39;5-6 hours&#39;         &#39;5-6 hours&#39;                         2  6183
 ## 2 &#39;7-8 hours&#39;         &#39;7-8 hours&#39;                         3  7346
 ## 3 &#39;Less than 5 hours&#39; &#39;Less than 5 hours&#39;                 1  8310
-## 4 &#39;More than 8 hours&#39; &#39;More than 8 hours&#39;                 4  6044
-## 5 Others              Others                              5    18</code></pre>
+## 4 &#39;More than 8 hours&#39; &#39;More than 8 hours&#39;                 4  6044</code></pre>
 </div>
 
 

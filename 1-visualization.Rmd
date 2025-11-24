@@ -233,7 +233,7 @@ corrplot(
 
 La matriz de correlaciones muestra que **no existen relaciones fuertes entre las variables analizadas**. Todas las correlaciones son muy bajas, lo que indica que factores como la edad, el rendimiento académico o las horas de estudio no presentan asociaciones significativas con la satisfacción o la presión académica.
 
-La relación más destacable, aunque sigue siendo débil, es la existente entre presión académica y satisfacción con los estudios, con una ligera correlación negativa. Por ello, es la que resulta más interesante para analizar, y se ha estudiado en detalle en el apartado anterior.
+La relación más destacable, aunque sigue siendo débil, es la existente entre presión académica y satisfacción con los estudios, con una ligera correlación negativa. Por ello, es la que resulta más interesante para analizar, y se ha estudiado en detalle en el apartado siguiente.
 
 #### 3.1.2. Relación entre la presión académica y la satisfacción con los estudios
 
@@ -256,7 +256,7 @@ La gráfica muestra que no existe una relación clara y fuerte entre la presión
 
 La línea de regresión presenta una ligera pendiente negativa, lo que indica que, en promedio, a mayor presión académica, la satisfacción tiende a ser levemente menor, aunque el efecto es muy reducido.
 
-En resumen: la presión académica no parece influir de manera significativa en la satisfacción de los estudiantes.
+En resumen**:** la **presión académica** **no** parece **influir** de manera significativa en la **satisfacción de los estudiantes.**
 
 ### 3.2. Relación entre variables numéricas y la depresión
 

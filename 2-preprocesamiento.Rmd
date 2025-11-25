@@ -100,7 +100,7 @@ df_students <- df_students %>%
 
 ```
 
-### 6. Tratamiento de variables ordinales y limpieza de texto
+## 6. Tratamiento de variables ordinales y limpieza de texto
 
 La variable **Sleep.Duration** presenta inconsistencias de formato: los valores están encerrados entre comillas (ej. 'Less than 5 hours') y existe una categoría "Others" no informativa. Dado que la manipulación de cadenas en R base puede resultar compleja, utilizaremos la **librería stringr** (mencionada como recurso recomendado en la documentación de R Base) para limpiar estos caracteres antes de la conversión.
 
@@ -140,12 +140,12 @@ df_students <- df_students %>%
 
 ```
 
-### 7. Reducción de cardinalidad en variables categóricas
+## 7. Reducción de cardinalidad en variables categóricas
 
 La variable Degree posee un **alto número de categorías con baja frecuencia**, lo que puede dificultar el aprendizaje de los modelos. Agrupamos las titulaciones minoritarias bajo la etiqueta "Other", manteniendo únicamente las 10 más frecuentes. Convertimos también Gender y City a **factores** para su correcta gestión en el primer dataset.
 
 ```{r}
-
+# cambiar por nivel u otra cosa
 top_degrees <- df_students %>%
   count(Degree) %>%
   top_n(10, wt = n) %>%
@@ -161,12 +161,12 @@ df_students <- df_students %>%
 
 ```
 
-### 8. Gestión de outliers
+## 8. Gestión de outliers
 
 Para asegurar la calidad de los datos numéricos, identificamos y eliminamos valores atípicos en **Age** y **CGPA** utilizando el criterio del **Rango Intercuartílico** (IQR). Esto evita que valores extremos sesguen los resultados de modelos sensibles a la distancia.
 
 ```{r}
-
+# plantear a lo mejor dejarlo
 numeric_cols_outliers <- c("Age", "CGPA")
 
 remove_outliers <- function(data, variable) {
@@ -185,11 +185,11 @@ for (col in numeric_cols_outliers) {
 
 ```
 
-### 9. Generación de Datasets para Minería de Datos
+## 9. Generación de Datasets para Minería de Datos
 
 En esta fase final del preprocesamiento, generaremos las distintas versiones del dataset necesarias para las tareas de minería de datos. Además, aplicaremos una Selección de atributos basada en filtros para eliminar variables redundantes generadas por la codificación *dummy*, mejorando así la calidad de los datos antes de guardarlos
 
-## 9.1 Dataset 1: Variables como factores
+### 9.1 Dataset 1: Variables como factores
 
 Esta versión mantiene las variables categóricas y ordinales como factores de R. Es la versión adecuada para algoritmos basados en árboles de decisión (rpart) y para visualización semántica, donde la multicolinealidad no es tan crítica o el propio algoritmo la gestiona.
 
@@ -198,7 +198,7 @@ df_factors <- df_students
 write.csv(df_factors, "./data/student_depression_clean_factors.csv", row.names = FALSE)
 ```
 
-## 9.2 Dataset 2: Codificación numérica y selección de atributos
+### 9.2 Dataset 2: Codificación numérica y selección de atributos
 
 A continuación, procedemos a transformar los datos para obtener una matriz puramente numérica. En primer lugar, convertimos las variables ordinales (Sleep.Duration y Dietary.Habits) a su representación entera, preservando el orden implícito que poseen.
 
@@ -264,7 +264,7 @@ write.csv(df_numeric_final, "./data/student_depression_numeric.csv", row.names =
 
 ```
 
-## 9.3 Dataset 3: Normalización (Min-Max)
+### 9.3 Dataset 3: Normalización (Min-Max)
 
 Observando el resumen estadístico del dataset numérico, vemos variables con rangos muy dispares: `Age` varía aproximadamente entre 18 y 60, mientras que `CGPA` lo hace entre 0 y 10, y las variables binarias entre 0 y 1.
 
@@ -312,7 +312,7 @@ summary(df_normalized_final)
 
 ```
 
-### 10. Conclusiones
+## 10. Conclusiones
 
 Tras ejecutar el pipeline completo de limpieza y transformación, hemos obtenido un conjunto de datos robusto y preparado para la fase de modelado. A partir del análisis del dataset final (df_normalized), extraemos las siguientes conclusiones técnicas:
 

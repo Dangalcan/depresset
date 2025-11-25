@@ -94,8 +94,7 @@ Transformamos las variables categóricas binarias ("Yes"/"No") a una representac
 df_students <- df_students %>%
   mutate(
     Had.suicidal.thoughts = ifelse(Had.suicidal.thoughts == "Yes", 1, 0),
-    Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == "Yes", 1, 0),
-    Depression = ifelse(Depression == "Yes", 1, 0)
+    Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == "Yes", 1, 0)
   )
 
 ```

@@ -7,3 +7,104 @@ output:
     toc_float: true
     # number_sections: true
 ---
+
+```{r}
+library(caret)
+library(dplyr)
+library(rpart.plot)
+```
+
+```{r}
+df_factors <- read.csv("./data/student_depression_clean_factors.csv", stringsAsFactors = TRUE)
+df_norm <- read.csv("./data/student_depression_normalized.csv")
+```
+
+```{r}
+df_factors <- df_factors %>%
+  mutate(
+    Had.suicidal.thoughts = ifelse(Had.suicidal.thoughts == 1, "Yes", "No"),
+    Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == 1, "Yes", "No"),
+    Depression = ifelse(Depression == 1, "Yes", "No")
+  )
+
+df_factors$Had.suicidal.thoughts      <- factor(df_factors$Had.suicidal.thoughts,
+                                                levels = c("Yes", "No"))
+df_factors$Family.History.Mental.Illness <- factor(df_factors$Family.History.Mental.Illness,
+                                                   levels = c("Yes", "No"))
+df_factors$Depression <- factor(df_factors$Depression,
+                                levels = c("Yes", "No"))
+
+df_norm$Depression <- ifelse(df_norm$Depression == 1, "Yes", "No")
+df_norm$Depression <- factor(df_norm$Depression,
+                             levels = c("Yes", "No"))
+```
+
+```{r}
+control_global <- trainControl(
+  method = "cv", 
+  number = 10, 
+  classProbs = TRUE, 
+  summaryFunction = twoClassSummary, 
+  savePredictions = "final"
+)
+```
+
+```{r}
+grid_arbol <- expand.grid(cp = seq(0.001, 0.05, by = 0.002))
+
+set.seed(123)
+modelo_arbol <- train(
+  Depression ~ ., 
+  data = df_factors, 
+  method = "rpart", 
+  trControl = control_global, 
+  tuneGrid = grid_arbol, 
+  metric = "ROC"
+)
+
+print(modelo_arbol)
+```
+
+```{r}
+grid_knn <- expand.grid(k = seq(5, 35, by = 2))
+
+set.seed(123)
+modelo_knn <- train(
+  Depression ~ ., 
+  data = df_norm, 
+  method = "knn", 
+  trControl = control_global, 
+  tuneGrid = grid_knn, 
+  metric = "ROC"
+)
+
+print(modelo_knn)
+```
+
+```{r}
+resultados_comparativa <- resamples(list(Arbol = modelo_arbol, KNN = modelo_knn))
+summary(resultados_comparativa)
+```
+
+```{r}
+bwplot(resultados_comparativa, main = "Comparativa de Modelos: Árbol vs k-NN")
+```
+
+```{r}
+rpart.plot(modelo_arbol$finalModel, 
+           extra = 106, 
+           box.palette = "RdGn",
+           main = "Árbol de Decisión: Factores de Depresión")
+```
+
+```{r}
+varImp(modelo_arbol)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

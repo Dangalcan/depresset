@@ -10,7 +10,7 @@ output:
 
 ```{r}
 # install.packages("glmnet")
-install.packages("xgboost")
+# install.packages("xgboost")
 ```
 
 ```{r}

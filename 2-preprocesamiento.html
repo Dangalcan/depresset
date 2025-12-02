@@ -1637,8 +1637,7 @@ matemáticamente por los algoritmos de modelado posteriores.</p>
 <pre class="r"><code>df_students &lt;- df_students %&gt;%
   mutate(
     Had.suicidal.thoughts = ifelse(Had.suicidal.thoughts == &quot;Yes&quot;, 1, 0),
-    Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == &quot;Yes&quot;, 1, 0),
-    Depression = ifelse(Depression == &quot;Yes&quot;, 1, 0)
+    Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == &quot;Yes&quot;, 1, 0)
   )</code></pre>
 </div>
 <div id="tratamiento-de-variables-ordinales-y-limpieza-de-texto" class="section level2">
@@ -1966,13 +1965,13 @@ las dimensiones y estructura del dataset final normalizado.</p>
 ##  Mean   :0.03667   Mean   :0.03732   Mean   :0.0426   Mean   :0.3653  
 ##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.0000   3rd Qu.:1.0000  
 ##  Max.   :1.00000   Max.   :1.00000   Max.   :1.0000   Max.   :1.0000  
-##    Depression
-##  Min.   :0   
-##  1st Qu.:0   
-##  Median :0   
-##  Mean   :0   
-##  3rd Qu.:0   
-##  Max.   :0</code></pre>
+##    Depression    
+##  Min.   :0.0000  
+##  1st Qu.:0.0000  
+##  Median :1.0000  
+##  Mean   :0.5854  
+##  3rd Qu.:1.0000  
+##  Max.   :1.0000</code></pre>
 </div>
 </div>
 <div id="conclusiones" class="section level2">

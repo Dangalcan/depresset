@@ -1873,9 +1873,9 @@ el rendimiento académico o la satisfacción con los estudios.</p>
 <h4>3.1.1. Matriz de correlación entre variables numéricas</h4>
 <p>Calculamos la matriz de correlaciones de Pearson entre las variables
 numéricas definidas previamente en numeric_vars:</p>
-<pre class="r"><code>datos_numericos &lt;- data[, numeric_vars] 
+<pre class="r"><code>numeric_data &lt;- data[, numeric_vars] 
 
-cor_matrix &lt;- cor(datos_numericos) 
+cor_matrix &lt;- cor(numeric_data) 
 cor_matrix</code></pre>
 <pre><code>##                             Age Academic.Pressure         CGPA
 ## Age                 1.000000000       -0.07587061  0.005167092
@@ -2008,31 +2008,31 @@ tiene antecedentes familiares de enfermedad mental).</p></li>
 distribución conjunta, seguida de un <em>diagrama de barras
 apiladas</em> que permite visualizar las proporciones de forma más
 intuitiva.</p>
-<pre class="r"><code>tabla_genero_familia &lt;- table(
+<pre class="r"><code>gender_table_family &lt;- table(
   data$Gender,
   data$Family.History.of.Mental.Illness
 )
 
-tabla_genero_familia</code></pre>
+gender_table_family</code></pre>
 <pre><code>##         
 ##            No  Yes
 ##   Female 6259 6082
 ##   Male   8125 7404</code></pre>
-<pre class="r"><code>prop.table(tabla_genero_familia, margin = 1) * 100</code></pre>
+<pre class="r"><code>prop.table(gender_table_family, margin = 1) * 100</code></pre>
 <pre><code>##         
 ##                No      Yes
 ##   Female 50.71712 49.28288
 ##   Male   52.32146 47.67854</code></pre>
-<pre class="r"><code>df_genero_familia &lt;- data %&gt;%
+<pre class="r"><code>df_gender_family &lt;- data %&gt;%
   group_by(Gender, Family.History.of.Mental.Illness) %&gt;%
-  summarise(Numero = n(), .groups = &quot;drop&quot;) %&gt;%
+  summarise(Number = n(), .groups = &quot;drop&quot;) %&gt;%
   group_by(Gender) %&gt;%
   mutate(
-    Porcentaje = 100 * Numero / sum(Numero)
+    Percentage = 100 * Number / sum(Number)
   )
 
-ggplot(df_genero_familia, aes(
-  x = Gender, y = Porcentaje,
+ggplot(df_gender_family, aes(
+  x = Gender, y = Percentage,
   fill = Family.History.of.Mental.Illness
 )) +
   geom_col() +
@@ -2071,14 +2071,14 @@ categórica del dataset.</p>
 <pre class="r"><code>plot_depression_by_cat &lt;- function(data, var_name) {
   df &lt;- data %&gt;%
     group_by(.data[[var_name]], Depression) %&gt;%
-    summarise(Numero = n(), .groups = &quot;drop&quot;) %&gt;%
+    summarise(Number = n(), .groups = &quot;drop&quot;) %&gt;%
     group_by(.data[[var_name]]) %&gt;%
     mutate(
-      Porcentaje = 100 * Numero / sum(Numero),
+      Percentage = 100 * Number / sum(Number),
       Depression_cat = ifelse(Depression == 1, &quot;Depresión&quot;, &quot;Sin depresión&quot;)
     )
 
-  ggplot(df, aes(x = .data[[var_name]], y = Porcentaje, fill = Depression_cat)) +
+  ggplot(df, aes(x = .data[[var_name]], y = Percentage, fill = Depression_cat)) +
     geom_col() +
     labs(
       title = paste(&quot;Porcentaje de estudiantes deprimidos según&quot;, var_name),

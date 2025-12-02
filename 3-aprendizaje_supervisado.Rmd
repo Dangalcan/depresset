@@ -8,176 +8,306 @@ output:
     # number_sections: true
 ---
 
+# Aprendizaje supervisado
+
+Tras la fase de visualización y el análisis exploratorio inicial desarrollado en el cuaderno anterior, en este cuaderno nos adentramos en la fase de modelización supervisada, cuyo objetivo es predecir la variable Depression a partir del resto de factores académicos, personales y de estilo de vida presentes en el dataset. El aprendizaje supervisado nos permite entrenar distintos modelos capaces de aprender patrones y relaciones entre variables, evaluando posteriormente su rendimiento mediante técnicas de validación cruzada. Esto no solo permite determinar qué modelo es más preciso, sino también qué factores tienen mayor importancia en la predicción de la depresión estudiantil.
+
+A lo largo de este cuaderno:
+
++ Prepararemos los conjuntos de datos ya procesados en fases anteriores.
+
++ Definiremos un esquema de validación cruzada estricto para evaluar los modelos.
+
++ Entrenaremos varias técnicas populares de predicción:
+
+  - Árbol de decisión (rpart)
+
+  - Regresión logística (glm)
+
+  - Regresión regularizada (glmnet)
+
+  - XGBoost
+
+  - KNN
+
++ Compararemos sus métricas mediante métodos estadísticos y visuales. 
+
++ Interpretaremos resultados y extraeremos conclusiones sobre qué modelos funcionan mejor y qué variables tienen mayor contribución.
+
+El objetivo final es proporcionar una visión completa de la capacidad predictiva del dataset y del rol que juegan los distintos factores asociados a la depresión en estudiantes.
+
 ```{r}
 # install.packages("glmnet")
-install.packages("xgboost")
+# install.packages("xgboost")
+# install.packages("pROC")
 ```
+## 1. Carga de librerías
 
+Cargamos las librerías necesarias para el análisis y la construcción de modelos supervisados.
 ```{r}
 library(caret)
 library(dplyr)
 library(rpart.plot)
 library(glmnet)
 library(xgboost)
+library(pROC)
 ```
 
+## 2. Lectura de los datasets
+
+Leemos los dos conjuntos de datos: uno con variables categóricas (df_factors) y otro normalizado (df_norm).
 ```{r}
 df_factors <- read.csv("./data/student_depression_clean_factors.csv", stringsAsFactors = TRUE)
-df_norm <- read.csv("./data/student_depression_normalized.csv")
+df_norm    <- read.csv("./data/student_depression_normalized.csv")
 ```
 
+## 3. Preprocesamiento final para modelización
+
+Transformamos algunas variables binarias a factores con niveles “Yes/No” y nos aseguramos de que la variable objetivo Depression tenga los niveles en el orden correcto.
 ```{r}
 df_factors <- df_factors %>%
-  mutate(
-    Had.suicidal.thoughts = ifelse(Had.suicidal.thoughts == 1, "Yes", "No"),
-    Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == 1, "Yes", "No"),
-    Depression = ifelse(Depression == 1, "Yes", "No")
-  )
+mutate(
+Had.suicidal.thoughts         = ifelse(Had.suicidal.thoughts == 1, "Yes", "No"),
+Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == 1, "Yes", "No"),
+Depression                    = ifelse(Depression == 1, "Yes", "No")
+)
 
-df_factors$Had.suicidal.thoughts      <- factor(df_factors$Had.suicidal.thoughts,
-                                                levels = c("Yes", "No"))
+df_factors$Had.suicidal.thoughts <- factor(df_factors$Had.suicidal.thoughts,
+levels = c("Yes", "No"))
 df_factors$Family.History.Mental.Illness <- factor(df_factors$Family.History.Mental.Illness,
-                                                   levels = c("Yes", "No"))
+levels = c("Yes", "No"))
 df_factors$Depression <- factor(df_factors$Depression,
-                                levels = c("Yes", "No"))
+levels = c("Yes", "No"))
 
 df_norm$Depression <- ifelse(df_norm$Depression == 1, "Yes", "No")
 df_norm$Depression <- factor(df_norm$Depression,
-                             levels = c("Yes", "No"))
+levels = c("Yes", "No"))
+
 ```
 
-```{r}
-control_global <- trainControl(
-  method = "cv", 
-  number = 10, 
-  classProbs = TRUE, 
-  summaryFunction = twoClassSummary, 
-  savePredictions = "final"
-)
-```
+## 4. Definición del esquema de validación
 
-```{r}
-grid_arbol <- expand.grid(cp = seq(0.001, 0.05, by = 0.002))
-
-set.seed(123)
-modelo_arbol <- train(
-  Depression ~ ., 
-  data = df_factors, 
-  method = "rpart", 
-  trControl = control_global, 
-  tuneGrid = grid_arbol, 
-  metric = "ROC"
-)
-
-print(modelo_arbol)
-```
-
+Realizamos una partición train/test estratificada (75% entrenamiento, 25% test) para evaluar el rendimiento final de los modelos en datos no vistos.
 ```{r}
 set.seed(123)
-modelo_glm <- train(
-  Depression ~ ., 
-  data = df_norm, 
-  method = "glm", 
-  trControl = control_global, 
-  metric = "ROC"
+
+train_index <- createDataPartition(df_norm$Depression, p = 0.75, list = FALSE)
+
+# Conjunto de entrenamiento y test para el modelo de árbol (df_factors)
+
+df_factors_train <- df_factors[train_index, ]
+df_factors_test  <- df_factors[-train_index, ]
+
+# Conjunto de entrenamiento y test para el resto de modelos (df_norm)
+
+df_norm_train <- df_norm[train_index, ]
+df_norm_test  <- df_norm[-train_index, ]
+
+```
+Definimos la estrategia de validación cruzada que se utilizará dentro del conjunto de entrenamiento (10-fold CV, cálculo de probabilidades y métrica ROC).
+```{r}
+global_control <- trainControl(
+method = "cv",
+number = 10,
+classProbs = TRUE,
+summaryFunction = twoClassSummary,
+savePredictions = "final"
 )
 
-print(modelo_glm)
 ```
-
+Ajustamos un árbol de decisión con rpart, explorando distintos valores del parámetro de complejidad cp.
 ```{r}
-# Modelo GLM con regularización (glmnet)
-grid_glmnet <- expand.grid(alpha = 0:1, lambda = seq(0.0001, 1, length = 20))
+tree_grid <- expand.grid(cp = seq(0.001, 0.05, by = 0.002))
 
 set.seed(123)
-modelo_glmnet <- train(
-  Depression ~ ., 
-  data = df_norm, 
-  method = "glmnet", 
-  trControl = control_global, 
-  tuneGrid = grid_glmnet, 
-  metric = "ROC"
+tree_model <- train(
+Depression ~ .,
+data = df_factors_train,
+method = "rpart",
+trControl = global_control,
+tuneGrid = tree_grid,
+metric = "ROC"
 )
 
-print(modelo_glmnet)
+print(tree_model)
+
+```
+Ajustamos un modelo GLM (regresión logística) sobre los datos normalizados.
+```{r}
+set.seed(123)
+glm_model <- train(
+Depression ~ .,
+data = df_norm_train,
+method = "glm",
+trControl = global_control,
+metric = "ROC"
+)
+
+print(glm_model)
+
 ```
 
+Ajustamos un modelo GLM con regularización (glmnet), probando diferentes combinaciones de alpha (L1/L2) y lambda (fuerza de regularización).
+
 ```{r}
-# Modelo XGBoost (xgbTree)
+glmnet_grid <- expand.grid(
+alpha  = 0:1,
+lambda = seq(0.0001, 1, length = 20)
+)
+
+set.seed(123)
+glmnet_model <- train(
+Depression ~ .,
+data = df_norm_train,
+method = "glmnet",
+trControl = global_control,
+tuneGrid = glmnet_grid,
+metric = "ROC"
+)
+
+print(glmnet_model)
+
+```
+Ajustamos un modelo de gradiente boosting XGBoost (xgbTree), explorando distintos hiperparámetros como profundidad de los árboles, número de iteraciones y tasa de aprendizaje.
+```{r}
 grid_xgb <- expand.grid(
-  nrounds = c(50, 100, 150),
-  max_depth = c(3, 6, 9),
-  eta = c(0.01, 0.1, 0.3),
-  gamma = 0,
-  colsample_bytree = 1,
-  min_child_weight = 1,
-  subsample = 1
+nrounds          = c(50, 100, 150),
+max_depth        = c(3, 6, 9),
+eta              = c(0.01, 0.1, 0.3),
+gamma            = 0,
+colsample_bytree = 1,
+min_child_weight = 1,
+subsample        = 1
 )
 
 set.seed(123)
-modelo_xgb <- train(
-  Depression ~ ., 
-  data = df_norm, 
-  method = "xgbTree", 
-  trControl = control_global, 
-  tuneGrid = grid_xgb, 
-  metric = "ROC"
+xgb_model <- train(
+Depression ~ .,
+data = df_norm_train,
+method = "xgbTree",
+trControl = global_control,
+tuneGrid = grid_xgb,
+metric = "ROC"
 )
 
-print(modelo_xgb)
-```
+print(xgb_model)
 
+```
+Ajustamos un modelo KNN (knn), probando diferentes valores del número de vecinos k
 ```{r}
-grid_knn <- expand.grid(k = seq(5, 35, by = 2))
+knn_grid <- expand.grid(k = seq(5, 35, by = 2))
 
 set.seed(123)
-modelo_knn <- train(
-  Depression ~ ., 
-  data = df_norm, 
-  method = "knn", 
-  trControl = control_global, 
-  tuneGrid = grid_knn, 
-  metric = "ROC"
+knn_model <- train(
+Depression ~ .,
+data = df_norm_train,
+method = "knn",
+trControl = global_control,
+tuneGrid = knn_grid,
+metric = "ROC"
 )
 
-print(modelo_knn)
-```
+print(knn_model)
 
+```
+Comparamos todos los modelos utilizando los resultados de la validación cruzada en el conjunto de entrenamiento.
 ```{r}
 model_list <- list(
-  Arbol = modelo_arbol,
-  GLM = modelo_glm,
-  GLMNet = modelo_glmnet,
-  XGBoost = modelo_xgb,
-  KNN = modelo_knn
+Arbol   = tree_model,
+GLM     = glm_model,
+GLMNet  = glmnet_model,
+XGBoost = xgb_model,
+KNN     = knn_model
 )
 
-resultados_comparativa <- resamples(model_list)
-summary(resultados_comparativa)
+comparison_results <- resamples(model_list)
+summary(comparison_results)
+
 ```
-
+Visualizamos la comparación entre modelos mediante diferentes gráficos (puntos, diagramas de caja y gráfico de puntos para la métrica ROC).
 ```{r}
-xyplot(resultados_comparativa)
+xyplot(comparison_results)
 
-bwplot(resultados_comparativa, metric = "ROC")
-dotplot(resultados_comparativa, metric = "ROC")
+bwplot(comparison_results, metric = "ROC")
+dotplot(comparison_results, metric = "ROC")
 ```
-
+Representamos el árbol de decisión final y observamos la importancia de las variables según este modelo.
 ```{r}
-rpart.plot(modelo_arbol$finalModel, 
-           extra = 106, 
-           box.palette = "RdGn",
-           main = "Árbol de Decisión: Factores de Depresión")
-```
-
-```{r}
-varImp(modelo_arbol)
-```
-
-```{r}
+rpart.plot(tree_model$finalModel,
+extra = 106,
+box.palette = "RdGn",
+main = "Árbol de Decisión: Factores de Depresión")
 
 ```
 
 ```{r}
+varImp(tree_model)
+
+```
+Evaluamos ahora el rendimiento final de cada modelo en el conjunto de test, calculando matriz de confusión y AUC de la curva ROC.
+```{r}
+# Función auxiliar para evaluar un modelo en test
+
+eval_model <- function(model, newdata, y_true) {
+
+# Predicción de clases
+
+pred_class <- predict(model, newdata = newdata)
+
+# Probabilidad de la clase positiva "Yes"
+
+pred_prob  <- predict(model, newdata = newdata, type = "prob")[, "Yes"]
+
+# Matriz de confusión
+
+cm <- confusionMatrix(pred_class, y_true, positive = "Yes")
+
+# Curva ROC y AUC
+
+roc_obj <- roc(response = y_true,
+predictor = pred_prob,
+levels = c("No", "Yes"))
+
+list(
+cm  = cm,
+roc = roc_obj,
+auc = as.numeric(auc(roc_obj))
+)
+}
+
+# Árbol (usa df_factors_test)
+
+res_tree   <- eval_model(tree_model,   df_factors_test, df_factors_test$Depression)
+
+# Resto de modelos (usan df_norm_test)
+
+res_glm    <- eval_model(glm_model,    df_norm_test, df_norm_test$Depression)
+res_glmnet <- eval_model(glmnet_model, df_norm_test, df_norm_test$Depression)
+res_xgb    <- eval_model(xgb_model,    df_norm_test, df_norm_test$Depression)
+res_knn    <- eval_model(knn_model,    df_norm_test, df_norm_test$Depression)
+
+# Resumen de AUC en test
+
+auc_test <- data.frame(
+Modelo   = c("Árbol", "GLM", "GLMNet", "XGBoost", "KNN"),
+AUC_test = c(res_tree$auc,
+res_glm$auc,
+res_glmnet$auc,
+res_xgb$auc,
+res_knn$auc)
+)
+
+auc_test
+
+```
+Por último, mostramos como ejemplo la matriz de confusión y la curva ROC en test para el modelo XGBoost, que suele ser uno de los más competitivos.
+```{r}
+# Matriz de confusión para XGBoost en test
+
+res_xgb$cm
+
+# Curva ROC en test para XGBoost
+
+plot(res_xgb$roc, main = "Curva ROC en test - XGBoost")
 
 ```

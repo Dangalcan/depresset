@@ -214,9 +214,9 @@ En primer lugar estudiamos la relación entre las variables numéricas del conju
 Calculamos la matriz de correlaciones de Pearson entre las variables numéricas definidas previamente en numeric_vars:
 
 ```{r}
-datos_numericos <- data[, numeric_vars] 
+numeric_data <- data[, numeric_vars] 
 
-cor_matrix <- cor(datos_numericos) 
+cor_matrix <- cor(numeric_data) 
 cor_matrix
 ```
 
@@ -313,26 +313,26 @@ Como ejemplo representativo analizamos la relación entre:
 Utilizamos una *tabla de contingencia* para observar la distribución conjunta, seguida de un *diagrama de barras apiladas* que permite visualizar las proporciones de forma más intuitiva.
 
 ```{r}
-tabla_genero_familia <- table(
+gender_table_family <- table(
   data$Gender,
   data$Family.History.of.Mental.Illness
 )
 
-tabla_genero_familia
-prop.table(tabla_genero_familia, margin = 1) * 100
+gender_table_family
+prop.table(gender_table_family, margin = 1) * 100
 ```
 
 ```{r}
-df_genero_familia <- data %>%
+df_gender_family <- data %>%
   group_by(Gender, Family.History.of.Mental.Illness) %>%
-  summarise(Numero = n(), .groups = "drop") %>%
+  summarise(Number = n(), .groups = "drop") %>%
   group_by(Gender) %>%
   mutate(
-    Porcentaje = 100 * Numero / sum(Numero)
+    Percentage = 100 * Number / sum(Number)
   )
 
-ggplot(df_genero_familia, aes(
-  x = Gender, y = Porcentaje,
+ggplot(df_gender_family, aes(
+  x = Gender, y = Percentage,
   fill = Family.History.of.Mental.Illness
 )) +
   geom_col() +
@@ -365,14 +365,14 @@ De esta manera, con una sola función podemos analizar sistemáticamente *“Dep
 plot_depression_by_cat <- function(data, var_name) {
   df <- data %>%
     group_by(.data[[var_name]], Depression) %>%
-    summarise(Numero = n(), .groups = "drop") %>%
+    summarise(Number = n(), .groups = "drop") %>%
     group_by(.data[[var_name]]) %>%
     mutate(
-      Porcentaje = 100 * Numero / sum(Numero),
+      Percentage = 100 * Number / sum(Number),
       Depression_cat = ifelse(Depression == 1, "Depresión", "Sin depresión")
     )
 
-  ggplot(df, aes(x = .data[[var_name]], y = Porcentaje, fill = Depression_cat)) +
+  ggplot(df, aes(x = .data[[var_name]], y = Percentage, fill = Depression_cat)) +
     geom_col() +
     labs(
       title = paste("Porcentaje de estudiantes deprimidos según", var_name),

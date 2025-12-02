@@ -1,0 +1,9 @@
+---
+title: "Estudio sobre la depresión estudiantil. Grupo 5. Aprendizaje no supervisado"
+author: "Miguel Encina Martinez, Daniel Galván Cancio, Jaime Linares Barrera, Daniel Vela Camacho"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    # number_sections: true
+---

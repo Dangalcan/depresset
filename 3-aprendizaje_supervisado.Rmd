@@ -9,9 +9,16 @@ output:
 ---
 
 ```{r}
+# install.packages("glmnet")
+install.packages("xgboost")
+```
+
+```{r}
 library(caret)
 library(dplyr)
 library(rpart.plot)
+library(glmnet)
+library(xgboost)
 ```
 
 ```{r}
@@ -66,6 +73,61 @@ print(modelo_arbol)
 ```
 
 ```{r}
+set.seed(123)
+modelo_glm <- train(
+  Depression ~ ., 
+  data = df_norm, 
+  method = "glm", 
+  trControl = control_global, 
+  metric = "ROC"
+)
+
+print(modelo_glm)
+```
+
+```{r}
+# Modelo GLM con regularización (glmnet)
+grid_glmnet <- expand.grid(alpha = 0:1, lambda = seq(0.0001, 1, length = 20))
+
+set.seed(123)
+modelo_glmnet <- train(
+  Depression ~ ., 
+  data = df_norm, 
+  method = "glmnet", 
+  trControl = control_global, 
+  tuneGrid = grid_glmnet, 
+  metric = "ROC"
+)
+
+print(modelo_glmnet)
+```
+
+```{r}
+# Modelo XGBoost (xgbTree)
+grid_xgb <- expand.grid(
+  nrounds = c(50, 100, 150),
+  max_depth = c(3, 6, 9),
+  eta = c(0.01, 0.1, 0.3),
+  gamma = 0,
+  colsample_bytree = 1,
+  min_child_weight = 1,
+  subsample = 1
+)
+
+set.seed(123)
+modelo_xgb <- train(
+  Depression ~ ., 
+  data = df_norm, 
+  method = "xgbTree", 
+  trControl = control_global, 
+  tuneGrid = grid_xgb, 
+  metric = "ROC"
+)
+
+print(modelo_xgb)
+```
+
+```{r}
 grid_knn <- expand.grid(k = seq(5, 35, by = 2))
 
 set.seed(123)
@@ -82,12 +144,23 @@ print(modelo_knn)
 ```
 
 ```{r}
-resultados_comparativa <- resamples(list(Arbol = modelo_arbol, KNN = modelo_knn))
+model_list <- list(
+  Arbol = modelo_arbol,
+  GLM = modelo_glm,
+  GLMNet = modelo_glmnet,
+  XGBoost = modelo_xgb,
+  KNN = modelo_knn
+)
+
+resultados_comparativa <- resamples(model_list)
 summary(resultados_comparativa)
 ```
 
 ```{r}
-bwplot(resultados_comparativa, main = "Comparativa de Modelos: Árbol vs k-NN")
+xyplot(resultados_comparativa)
+
+bwplot(resultados_comparativa, metric = "ROC")
+dotplot(resultados_comparativa, metric = "ROC")
 ```
 
 ```{r}

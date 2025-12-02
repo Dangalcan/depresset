@@ -47,7 +47,7 @@ df_norm$Depression <- factor(df_norm$Depression,
 ```
 
 ```{r}
-control_global <- trainControl(
+global_control <- trainControl(
   method = "cv", 
   number = 10, 
   classProbs = TRUE, 
@@ -57,49 +57,49 @@ control_global <- trainControl(
 ```
 
 ```{r}
-grid_arbol <- expand.grid(cp = seq(0.001, 0.05, by = 0.002))
+tree_grid <- expand.grid(cp = seq(0.001, 0.05, by = 0.002))
 
 set.seed(123)
-modelo_arbol <- train(
+tree_model <- train(
   Depression ~ ., 
   data = df_factors, 
   method = "rpart", 
-  trControl = control_global, 
-  tuneGrid = grid_arbol, 
+  trControl = global_control, 
+  tuneGrid = tree_grid, 
   metric = "ROC"
 )
 
-print(modelo_arbol)
+print(tree_model)
 ```
 
 ```{r}
 set.seed(123)
-modelo_glm <- train(
+glm_model <- train(
   Depression ~ ., 
   data = df_norm, 
   method = "glm", 
-  trControl = control_global, 
+  trControl = global_control, 
   metric = "ROC"
 )
 
-print(modelo_glm)
+print(glm_model)
 ```
 
 ```{r}
 # Modelo GLM con regularización (glmnet)
-grid_glmnet <- expand.grid(alpha = 0:1, lambda = seq(0.0001, 1, length = 20))
+glmnet_grid <- expand.grid(alpha = 0:1, lambda = seq(0.0001, 1, length = 20))
 
 set.seed(123)
-modelo_glmnet <- train(
+glmnet_model <- train(
   Depression ~ ., 
   data = df_norm, 
   method = "glmnet", 
-  trControl = control_global, 
-  tuneGrid = grid_glmnet, 
+  trControl = global_control, 
+  tuneGrid = glmnet_grid, 
   metric = "ROC"
 )
 
-print(modelo_glmnet)
+print(glmnet_model)
 ```
 
 ```{r}
@@ -115,63 +115,63 @@ grid_xgb <- expand.grid(
 )
 
 set.seed(123)
-modelo_xgb <- train(
+xgb_model <- train(
   Depression ~ ., 
   data = df_norm, 
   method = "xgbTree", 
-  trControl = control_global, 
+  trControl = global_control, 
   tuneGrid = grid_xgb, 
   metric = "ROC"
 )
 
-print(modelo_xgb)
+print(xgb_model)
 ```
 
 ```{r}
-grid_knn <- expand.grid(k = seq(5, 35, by = 2))
+knn_grid <- expand.grid(k = seq(5, 35, by = 2))
 
 set.seed(123)
-modelo_knn <- train(
+knn_model <- train(
   Depression ~ ., 
   data = df_norm, 
   method = "knn", 
-  trControl = control_global, 
-  tuneGrid = grid_knn, 
+  trControl = global_control, 
+  tuneGrid = knn_grid, 
   metric = "ROC"
 )
 
-print(modelo_knn)
+print(knn_model)
 ```
 
 ```{r}
 model_list <- list(
-  Arbol = modelo_arbol,
-  GLM = modelo_glm,
-  GLMNet = modelo_glmnet,
-  XGBoost = modelo_xgb,
-  KNN = modelo_knn
+  Arbol = tree_model,
+  GLM = glm_model,
+  GLMNet = glmnet_model,
+  XGBoost = xgb_model,
+  KNN = knn_model
 )
 
-resultados_comparativa <- resamples(model_list)
-summary(resultados_comparativa)
+comparison_results <- resamples(model_list)
+summary(comparison_results)
 ```
 
 ```{r}
-xyplot(resultados_comparativa)
+xyplot(comparison_results)
 
-bwplot(resultados_comparativa, metric = "ROC")
-dotplot(resultados_comparativa, metric = "ROC")
+bwplot(comparison_results, metric = "ROC")
+dotplot(comparison_results, metric = "ROC")
 ```
 
 ```{r}
-rpart.plot(modelo_arbol$finalModel, 
+rpart.plot(tree_model$finalModel, 
            extra = 106, 
            box.palette = "RdGn",
            main = "Árbol de Decisión: Factores de Depresión")
 ```
 
 ```{r}
-varImp(modelo_arbol)
+varImp(tree_model)
 ```
 
 ```{r}

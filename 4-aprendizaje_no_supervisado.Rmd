@@ -7,3 +7,352 @@ output:
     toc_float: true
     # number_sections: true
 ---
+
+# 1. Análisis de Componentes Principales (PCA)
+
+El Análisis de Componentes Principales (PCA) es una técnica estadística de reducción de dimensionalidad que nos permite simplificar la complejidad de nuestros datos manteniendo la mayor cantidad de información posible. En este estudio, utilizaremos PCA para:
+
+1.  Explorar la estructura subyacente de los datos numéricos.
+2.  Identificar qué variables contribuyen más a la varianza del dataset.
+3.  Visualizar posibles agrupamientos naturales de estudiantes.
+
+## 1.1 Carga de librerías
+
+Comenzamos cargando las librerías necesarias para el análisis. Utilizaremos `tidyverse` para la manipulación de datos y `factoextra` para la visualización elegante de los resultados del PCA. También cargamos `Rtsne` para el análisis no lineal posterior.
+
+```{r message=FALSE, warning=FALSE}
+# Library for data manipulation and visualization (includes ggplot2)
+#install.packages("tidyverse")
+library(tidyverse)
+
+# Library specialized in multivariate analysis visualization (PCA, Clustering)
+#install.packages("factoextra")
+library(factoextra)
+
+# Library for cluster analysis
+#install.packages("cluster")
+library(cluster)
+
+# Library for t-SNE (t-Distributed Stochastic Neighbor Embedding)
+#install.packages("Rtsne")
+library(Rtsne)
+```
+
+## 1.2 Carga del dataset
+
+Cargamos el dataset numérico que preparamos en la fase de preprocesamiento (`student_depression_numeric.csv`). Este dataset ya ha pasado por limpieza, codificación de variables categóricas (dummies) y eliminación de variables altamente correlacionadas.
+
+```{r}
+# Read the CSV file generated during preprocessing
+df_numeric <- read.csv("./data/student_depression_numeric.csv")
+
+# Show the first few rows to verify correct loading
+head(df_numeric)
+```
+
+## 1.3 Validación de datos
+
+Antes de proceder, es crucial verificar que los datos sean estrictamente numéricos y no contengan valores perdidos (NA), ya que el algoritmo de PCA no tolera valores nulos.
+
+```{r}
+# Check for NA values in the dataset
+sum_na <- sum(is.na(df_numeric))
+cat("Total number of NA values in the dataset:", sum_na, "\n")
+
+# Verify the structure to ensure all columns are numeric
+str(df_numeric, list.len = 10) # Show only the first 10 variables to avoid cluttering the output
+```
+
+## 1.4 Preparación de los datos para PCA
+
+El PCA es una técnica de aprendizaje no supervisado, por lo que debemos excluir la variable objetivo (`Depression`) del análisis. Si la incluyéramos, estaríamos sesgando el análisis hacia la predicción de esta variable, cuando nuestro objetivo es explorar la estructura de las variables predictoras.
+
+Además, es **obligatorio escalar y centrar** los datos. Nuestras variables tienen escalas muy diferentes (ej. `Age` vs `CGPA` vs variables binarias). Sin estandarización (`scale = TRUE`), las variables con mayor varianza (magnitud) dominarían los componentes principales, ocultando la contribución de variables importantes pero con rangos menores.
+
+```{r}
+# Remove the target variable 'Depression' for unsupervised analysis
+df_pca_data <- df_numeric %>%
+  select(-Depression)
+
+# Verify the dimensions of the prepared dataset
+dim(df_pca_data)
+```
+
+## 1.5 Ejecución del PCA
+
+Utilizamos la función `prcomp` de R base, que implementa PCA mediante descomposición en valores singulares (SVD), numéricamente más estable que la descomposición de la matriz de covarianza.
+
+Argumentos clave:
+- `center = TRUE`: Centra las variables para que tengan media cero.
+- `scale. = TRUE`: Escala las variables para que tengan varianza unitaria.
+
+```{r}
+# Execute PCA
+pca_result <- prcomp(df_pca_data, center = TRUE, scale. = TRUE)
+
+# Show a summary of the generated principal components
+summary(pca_result)
+```
+
+## 1.6 Análisis de la Varianza Explicada (Scree Plot)
+
+El "Scree Plot" o gráfico de sedimentación nos ayuda a determinar cuántos componentes principales son necesarios para retener una cantidad significativa de información (varianza) de los datos originales. Buscamos el "codo" en el gráfico, donde la ganancia de varianza explicada por añadir un nuevo componente disminuye drásticamente.
+
+```{r}
+# Visualize the percentage of variance explained by each dimension
+fviz_eig(pca_result, 
+         addlabels = TRUE, 
+         ylim = c(0, 20),
+         main = "Scree Plot: Varianza explicada por cada Componente Principal")
+```
+
+## 1.7 Visualización de Variables (Biplot)
+
+El Biplot nos permite visualizar simultáneamente:
+1.  **Variables (flechas):** La dirección y longitud indican cómo contribuye cada variable a los componentes principales. Variables cercanas entre sí están correlacionadas positivamente. Variables opuestas, negativamente.
+2.  **Individuos (puntos):** Su posición indica su puntuación en los nuevos ejes.
+
+Dado que tenemos muchas variables (alta dimensionalidad), filtraremos para mostrar solo las variables que más contribuyen a los dos primeros componentes, evitando un gráfico ilegible.
+
+```{r}
+# Visualize variables in the plane of the first two components (PC1 and PC2)
+# 'select.var' allows us to show only the top 20 variables with highest contribution (cos2) for clarity
+fviz_pca_var(pca_result,
+             col.var = "contrib", # Color variables by their contribution
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE,     # Avoid text overlapping
+             select.var = list(contrib = 20), # Show top 20 variables
+             title = "PCA - Top 20 Variables más contribuyentes"
+)
+```
+
+## 1.8 Contribución de las variables a los Componentes Principales
+
+Para entender mejor qué significa cada componente, analizamos qué variables originales tienen mayor peso en su construcción.
+
+### Contribución al Componente Principal 1 (PC1)
+
+```{r}
+# Plot of variable contribution to Dimension 1
+fviz_contrib(pca_result, choice = "var", axes = 1, top = 15,
+             title = "Contribución de variables al PC1")
+```
+
+### Contribución al Componente Principal 2 (PC2)
+
+```{r}
+# Plot of variable contribution to Dimension 2
+fviz_contrib(pca_result, choice = "var", axes = 2, top = 15,
+             title = "Contribución de variables al PC2")
+```
+
+## 1.9 Interpretación de Resultados del PCA
+
+A la vista de los gráficos generados (Scree Plot y Biplot), podemos extraer las siguientes conclusiones técnicas:
+
+1.  **Baja Varianza Explicada**: Las dos primeras componentes principales explican un porcentaje muy bajo de la varianza total (aproximadamente un 5%). Esto indica que la estructura de los datos es altamente compleja y no puede reducirse linealmente a dos dimensiones sin perder una cantidad masiva de información.
+2.  **Ausencia de Clusters Definidos**: El Biplot muestra una "nube" densa de puntos sin agrupaciones claras. Esto es típico cuando se aplican técnicas lineales (como PCA) sobre datos con muchas variables binarias (One-Hot Encoding) y posibles relaciones no lineales.
+
+**Conclusión**: El PCA no es suficiente para visualizar la estructura de este dataset. Es necesario aplicar técnicas de reducción de dimensionalidad no lineales, como t-SNE, para intentar capturar agrupaciones locales que el PCA pasa por alto.
+
+# 2. t-SNE (t-Distributed Stochastic Neighbor Embedding)
+
+Dado que el PCA no ha logrado separar los grupos, utilizaremos t-SNE. Esta técnica es probabilística y no lineal, diseñada específicamente para visualizar datos de alta dimensionalidad en 2D o 3D, preservando la estructura local (vecinos cercanos).
+
+## 2.1 Ejecución de t-SNE
+
+Para ejecutar t-SNE, primero debemos asegurarnos de que no haya filas duplicadas, ya que el algoritmo no las tolera. Además, utilizaremos el resultado del PCA inicial (o los datos escalados) como entrada para mejorar la eficiencia computacional.
+
+```{r}
+# Prepare data: Ensure we use the same data as PCA (without target)
+df_features <- df_pca_data
+
+# Check for duplicates (t-SNE does not handle duplicates well)
+unique_indices <- !duplicated(df_features)
+df_features_unique <- df_features[unique_indices, ]
+
+# We also need to filter the labels to match the unique rows
+# This allows us to color the plot by 'Depression' later
+df_labels_unique <- df_numeric$Depression[unique_indices]
+
+cat("Original rows:", nrow(df_features), "\n")
+cat("Unique rows for t-SNE:", nrow(df_features_unique), "\n")
+
+# Run t-SNE
+# perplexity: Balance between local and global aspects of data (usually 5-50)
+# check_duplicates = FALSE: We already handled them manually
+set.seed(42) # For reproducibility
+tsne_out <- Rtsne(as.matrix(df_features_unique), 
+                  check_duplicates = FALSE, 
+                  pca = TRUE, # Run an initial PCA to speed up calculation
+                  perplexity = 30, 
+                  verbose = TRUE, 
+                  max_iter = 500)
+```
+
+## 2.2 Visualización de t-SNE
+
+Visualizamos la proyección en 2D. Colorearemos los puntos según la variable `Depression` para investigar si existe una separación natural entre estudiantes con y sin depresión en este nuevo espacio latente no lineal.
+
+```{r}
+# Create a dataframe for plotting
+df_tsne_plot <- data.frame(
+  X = tsne_out$Y[,1],
+  Y = tsne_out$Y[,2],
+  Depression = as.factor(df_labels_unique) # Convert to factor for categorical coloring
+)
+
+# Plot t-SNE results
+ggplot(df_tsne_plot, aes(x = X, y = Y, color = Depression)) +
+  geom_point(alpha = 0.6, size = 1.5) +
+  scale_color_manual(values = c("#00AFBB", "#FC4E07"), 
+                     labels = c("No Depresión", "Depresión")) +
+  theme_minimal() +
+  labs(title = "Proyección t-SNE de Estudiantes",
+       subtitle = "Reducción de dimensionalidad no lineal",
+       x = "Dimensión t-SNE 1",
+       y = "Dimensión t-SNE 2",
+       color = "Estado") +
+  theme(legend.position = "top")
+```
+
+# 3. Clustering Robusto: K-Medoids (PAM)
+
+En esta sección, aplicaremos el algoritmo **K-Medoids (Partitioning Around Medoids - PAM)**. A diferencia de K-Means, que utiliza el promedio (centroide) para representar un clúster, PAM utiliza un punto de datos real (medoide). Esto lo hace significativamente más **robusto frente a valores atípicos (outliers)** y ruido, lo cual es ideal para nuestro dataset de salud mental donde pueden existir casos extremos.
+
+## 3.1 Carga de Datos Normalizados
+
+Para algoritmos basados en distancias como PAM y Clustering Jerárquico, es fundamental utilizar datos normalizados (en el rango [0,1] o estandarizados) para que ninguna variable domine el cálculo de la distancia debido a su escala. Cargaremos el dataset `student_depression_normalized.csv` generado en el preprocesamiento.
+
+```{r}
+# Load the normalized dataset specifically for distance-based clustering
+df_normalized <- read.csv("./data/student_depression_normalized.csv")
+
+# Remove the target variable 'Depression' for unsupervised learning
+df_clustering_data <- df_normalized %>%
+  select(-Depression)
+
+# Verify the structure
+head(df_clustering_data)
+```
+
+## 3.2 Determinación del Número Óptimo de Clústeres (K)
+
+Utilizaremos el **Método del Codo (Elbow Method)** basado en la suma de cuadrados dentro de los clústeres (WSS) para estimar el número óptimo de grupos ($k$). Buscamos el punto donde la reducción de la varianza se estabiliza (el "codo").
+
+```{r}
+# Calculate and visualize the optimal number of clusters for PAM using the WSS method
+# We use a subset of data or the full dataset depending on performance, 
+# but PAM is computationally intensive, so be mindful with large datasets.
+# Here we run it on the full dataset as requested.
+
+set.seed(123) # For reproducibility
+fviz_nbclust(df_clustering_data, pam, method = "wss") +
+  labs(title = "Número óptimo de clústeres - Método del Codo (PAM)")
+```
+
+## 3.3 Ejecución del Algoritmo PAM
+
+Basándonos en el análisis (y asumiendo $k=3$ como un punto de partida razonable para segmentar niveles de riesgo o perfiles), ejecutamos el algoritmo PAM.
+
+```{r}
+# Fit the PAM model with k = 3
+set.seed(123)
+pam_result <- pam(df_clustering_data, k = 3)
+
+# Show the medoids (representative students for each cluster)
+print(pam_result$medoids)
+
+# Add the cluster assignment to the original data for future analysis
+df_normalized$Cluster_PAM <- as.factor(pam_result$clustering)
+```
+
+## 3.4 Visualización de Clústeres PAM
+
+Visualizamos los clústeres proyectados en las dos primeras dimensiones principales (PCA). Los puntos más grandes representan los **medoides**.
+
+```{r}
+# Visualize PAM clusters
+fviz_cluster(pam_result, 
+             data = df_clustering_data,
+             palette = c("#00AFBB", "#E7B800", "#FC4E07"), # Color palette
+             ellipse.type = "convex", # Draw convex hulls around clusters
+             repel = TRUE, # Avoid label overplotting
+             ggtheme = theme_minimal(),
+             main = "Visualización de Clústeres K-Medoids (PAM)"
+)
+```
+
+# 4. Clustering Jerárquico (Análisis de Enlaces)
+
+El Clustering Jerárquico nos permite construir una jerarquía de clústeres sin predefinir $k$. Es útil para entender las relaciones anidadas entre los datos.
+
+A petición del usuario, exploraremos cómo afectan los diferentes métodos de **enlace (linkage)** a la formación de los clústeres. El método de enlace define cómo se calcula la distancia entre dos clústeres:
+
+1.  **Single Linkage (Enlace Simple):** Distancia mínima entre puntos de dos clústeres. Tiende a producir clústeres alargados ("chaining effect").
+2.  **Average Linkage (Enlace Promedio):** Distancia promedio entre todos los pares de puntos. Suele producir clústeres más compactos.
+3.  **Complete Linkage (Enlace Completo):** Distancia máxima entre puntos. Produce clústeres compactos y esféricos.
+
+## 4.1 Cálculo de la Matriz de Distancias
+
+Primero calculamos la matriz de distancias euclídeas entre todas las observaciones.
+
+```{r}
+# Calculate Euclidean distance matrix
+# Note: For very large datasets, this step can be memory intensive.
+dist_matrix <- dist(df_clustering_data, method = "euclidean")
+```
+
+## 4.2 Comparación de Métodos de Enlace
+
+Ejecutamos el clustering jerárquico con los tres métodos solicitados y visualizamos sus dendrogramas.
+
+### 4.2.1 Enlace Simple (Single Linkage)
+
+```{r}
+# Hierarchical clustering with Single Linkage
+hc_single <- hclust(dist_matrix, method = "single")
+
+# Plot Dendrogram (subsetting for visibility if needed, here showing full or summary)
+# We plot a basic dendrogram title
+plot(hc_single, main = "Dendrograma - Single Linkage", xlab = "", sub = "", labels = FALSE)
+```
+
+### 4.2.2 Enlace Promedio (Average Linkage)
+
+```{r}
+# Hierarchical clustering with Average Linkage
+hc_average <- hclust(dist_matrix, method = "average")
+
+# Plot Dendrogram
+plot(hc_average, main = "Dendrograma - Average Linkage", xlab = "", sub = "", labels = FALSE)
+```
+
+### 4.2.3 Enlace Completo (Complete Linkage)
+
+```{r}
+# Hierarchical clustering with Complete Linkage
+hc_complete <- hclust(dist_matrix, method = "complete")
+
+# Plot Dendrogram
+plot(hc_complete, main = "Dendrograma - Complete Linkage", xlab = "", sub = "", labels = FALSE)
+```
+
+## 4.3 Corte del Dendrograma (Complete Linkage)
+
+Seleccionamos el método de **Enlace Completo** por ser generalmente más robusto y producir clústeres más equilibrados. Cortamos el árbol para obtener 3 grupos y los visualizamos.
+
+```{r}
+# Cut the tree into 3 groups (using Complete Linkage)
+grp_complete <- cutree(hc_complete, k = 3)
+
+# Visualize the clusters obtained from Hierarchical Clustering
+fviz_cluster(list(data = df_clustering_data, cluster = grp_complete),
+             palette = c("#2E9FDF", "#00AFBB", "#E7B800"),
+             ellipse.type = "convex", 
+             repel = TRUE,
+             show.clust.cent = FALSE, 
+             ggtheme = theme_minimal(),
+             main = "Clústeres Jerárquicos (Complete Linkage, k=3)"
+)
+```

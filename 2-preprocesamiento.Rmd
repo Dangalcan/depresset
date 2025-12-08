@@ -13,15 +13,10 @@ output:
 En este apartado vamos a realizar las transformaciones necesarias para dejar nuestro dataset listo para análisis más avanzados y modelado predictivo. Entre las tareas principales se incluyen:
 
 -   Filtrado de participantes que no sean estudiantes.
-
 -   Eliminación de columnas irrelevantes.
-
 -   Recodificación de variables categóricas binarias (“Yes”/“No”) a numéricas.
-
 -   Discretización y codificación de variables ordinales, como la duración del sueño.
-
 -   Posible agrupación o recodificación de variables con niveles poco representativos.
-
 -   Identificación y tratamiento de valores extremos en variables numéricas.
 
 Antes de comenzar, vamos a importar las librerías que nos van a hacer falta en este notebook.
@@ -46,7 +41,7 @@ data <- read.csv("./data/student_depression_dataset.csv", sep=",")
 head(data)
 ```
 
-## 2. Filtrado por estudiantes y eliminación de columnas innecesarias
+## 2. Filtrado inicial y limpieza estructural
 
 Como hemos comentado en la parte de visualización del dataset, la mayoría de participantes son estudiantes, por lo que vamos a hacer un filtro para quedarnos únicamente con los estudiantes y vamos a eliminar aquellas columnas que no van a aportarnos ninguna información como son:
 
@@ -63,9 +58,7 @@ df_students <- data %>%
 head(df_students)
 ```
 
-## 3. Renombrar variables
-
-Vamos a renombrar el nombre de cierta variables para que sea más comodo trabajar con ellas.
+A continuación, vamos a renombrar ciertas variables para que sea más comodo trabajar con ellas.
 
 ```{r}
 df_students <- df_students %>%
@@ -73,16 +66,14 @@ df_students <- df_students %>%
          Family.History.Mental.Illness=Family.History.of.Mental.Illness)
 ```
 
-## 4. Limpieza de valores nulos no estándar
+## 4. Limpieza de valores inconsistentes
 
-Hemos detectado que la variable `Financial.Stress` contiene valores representados por el carácter `?`. Estos valores constituyen ruido y no permiten la conversión numérica. Procedemos a filtrar estos registros antes de transformar la variable, siguiendo las prácticas de limpieza de datos para eliminar valores inconsistentes.
+En la visualización detectamos que la variable `Financial.Stress` contiene valores representados por el carácter `?`. Estos valores constituyen ruido y no permiten la conversión numérica. Procedemos a filtrar estos registros antes de transformar la variable, siguiendo las prácticas de limpieza de datos para eliminar valores inconsistentes.
 
 ```{r}
-
 df_students <- df_students %>%
   filter(Financial.Stress != "?") %>%
   mutate(Financial.Stress = as.numeric(Financial.Stress))
-
 ```
 
 ## 5. Codificación de variables booleanas
@@ -90,18 +81,16 @@ df_students <- df_students %>%
 Transformamos las variables categóricas binarias ("Yes"/"No") a una representación numérica (1/0) para que puedan ser procesadas matemáticamente por los algoritmos de modelado posteriores.
 
 ```{r}
-
 df_students <- df_students %>%
   mutate(
-    Had.suicidal.thoughts = ifelse(Had.suicidal.thoughts == "Yes", 1, 0),
-    Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == "Yes", 1, 0)
+    Had.suicidal.thoughts = ifelse(Had.suicidal.thoughts == "Yes", 1,0),
+    Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == "Yes", 1,0)
   )
-
 ```
 
-## 6. Tratamiento de variables ordinales y limpieza de texto
+## 6. Tratamiento de variables ordinales
 
-La variable **Sleep.Duration** presenta inconsistencias de formato: los valores están encerrados entre comillas (ej. 'Less than 5 hours') y existe una categoría "Others" no informativa. Dado que la manipulación de cadenas en R base puede resultar compleja, utilizaremos la **librería stringr** (mencionada como recurso recomendado en la documentación de R Base) para limpiar estos caracteres antes de la conversión.
+La variable `Sleep.Duration` presenta inconsistencias de formato: los valores están encerrados entre comillas (ej. 'Less than 5 hours') y existe una categoría "Others" no informativa. Dado que la manipulación de cadenas en R base puede resultar compleja, utilizaremos la **librería stringr** (mencionada como recurso recomendado en la documentación de R Base) para limpiar estos caracteres antes de la conversión.
 
 El proceso consiste en:
 
@@ -112,23 +101,20 @@ El proceso consiste en:
 3.  Convertir la variable limpia a factor ordenado.
 
 ```{r}
+sleep_duration_levels <- c("Less than 5 hours", "5-6 hours", "7-8 hours", "More than 8 hours")
 
 df_students <- df_students %>%
   mutate(Sleep.Duration = str_remove_all(Sleep.Duration, "['\"]")) %>%
   filter(Sleep.Duration != "Others") %>%
   mutate(
-    Sleep.Duration = factor(Sleep.Duration, 
-                            levels = c("Less than 5 hours", "5-6 hours", "7-8 hours", "More than 8 hours"), 
+    Sleep.Duration = factor(Sleep.Duration, levels = sleep_duration_levels, 
                             ordered = TRUE)
   )
-
-
 ```
 
-Aplicamos una lógica similar para **Dietary.Habits**, estableciendo un orden de calidad en la dieta y eliminando registros no informativos si los hubiera.
+Aplicamos una lógica similar para `Dietary.Habits`, estableciendo un orden de calidad en la dieta y eliminando registros no informativos si los hubiera.
 
 ```{r}
-
 df_students <- df_students %>%
   filter(Dietary.Habits != "Others") %>%
   mutate(
@@ -136,37 +122,104 @@ df_students <- df_students %>%
                             levels = c("Unhealthy", "Moderate", "Healthy"), 
                             ordered = TRUE)
   )
-
 ```
 
 ## 7. Reducción de cardinalidad en variables categóricas
 
-La variable Degree posee un **alto número de categorías con baja frecuencia**, lo que puede dificultar el aprendizaje de los modelos. Agrupamos las titulaciones minoritarias bajo la etiqueta "Other", manteniendo únicamente las 10 más frecuentes. Convertimos también Gender y City a **factores** para su correcta gestión en el primer dataset.
+La variable `City` posee un **alto número de categorías con baja frecuencia**, lo que puede dificultar el aprendizaje de los modelos. Agrupamos las titulaciones minoritarias bajo la etiqueta "Other", manteniendo únicamente las 10 más frecuentes.
 
 ```{r}
-# cambiar por nivel u otra cosa
-top_degrees <- df_students %>%
-  count(Degree) %>%
-  top_n(10, wt = n) %>%
-  pull(Degree)
+top_cities <- df_students %>%
+  count(City) %>%
+  top_n(25, wt = n) %>%
+  pull(City)
 
 df_students <- df_students %>%
   mutate(
-    Degree = ifelse(Degree %in% top_degrees, Degree, "Other"),
-    Degree = as.factor(Degree),
-    Gender = as.factor(Gender),
+    City = ifelse(City %in% top_cities, City, "Other"),
     City = as.factor(City)
   )
+```
 
+Con la variable `Degree` ocurre algo parecido que con la variable `City`, pero ahora vamos a darle otro enfoque. Vamos a agrupar por **nivel académico**
+
+```{r}
+unique(df_students$Degree)
+```
+
+Según lo que hemos investigado (<https://www.cbse.gov.in/>, <https://www.barcouncilofindia.org/>, <https://www.coa.gov.in/>, <https://www.pci.nic.in/>, <https://www.nmc.org.in/>), cada estudio significa lo siguiente:
+
+-   **Class 12**: equivalente al bachillerato o secundaria superior india. Es el nivel previo a la universidad.
+-   **BA (Bachelor of Arts)**: grado universitario en artes, humanidades o ciencias sociales.
+-   **BSc (Bachelor of Science)**: grado en ciencias, como matemáticas, física, biología, química, etc.
+-   **B.Com (Bachelor of Commerce)**: grado en comercio, contabilidad, finanzas o gestión empresarial.
+-   **BBA (Bachelor of Business Administration)**: grado orientado a administración y gestión de empresas.
+-   **BCA (Bachelor of Computer Applications)**: grado especializado en informática aplicada y software.
+-   **B.Ed (Bachelor of Education)**: grado profesional para convertirse en docente.
+-   **LLB (Bachelor of Laws)**: grado de derecho; habilita para ejercer como abogado en India.
+-   **B.Tech (Bachelor of Technology)** y **BE (Bachelor of Engineering)**: grados de ingeniería técnica; ambos equivalentes en la práctica.
+-   **B.Arch (Bachelor of Architecture)**: grado profesional en arquitectura.
+-   **B.Pharm (Bachelor of Pharmacy)**: grado en farmacia para trabajar con medicamentos y formulación.
+-   **BHM (Bachelor of Hotel Management)**: grado en gestión hotelera y turismo.
+-   **MBBS (Bachelor of Medicine, Bachelor of Surgery)**: carrera de medicina. Es el título básico para convertirse en médico.
+-   **MA (Master of Arts)**: posgrado en humanidades o ciencias sociales.
+-   **MSc (Master of Science)**: posgrado en disciplinas científicas.
+-   **M.Com (Master of Commerce)**: posgrado en finanzas, contabilidad o comercio.
+-   **MBA (Master of Business Administration)**: máster especializado en gestión empresarial.
+-   **M.Ed (Master of Education)**: máster para profundizar en educación o pedagogía.
+-   **LLM (Master of Laws)**: máster en derecho.
+-   **M.Tech (Master of Technology)** y **ME (Master of Engineering)**: másteres en ingeniería.
+-   **M.Pharm (Master of Pharmacy)**: máster en farmacia y ciencias farmacéuticas.
+-   **MCA (Master of Computer Applications)**: máster en informática aplicada y desarrollo de software.
+-   **MHM (Master of Hotel Management)**: máster en gestión hotelera.
+-   **MD (Doctor of Medicine)**: especialización médica de posgrado (nivel máster, aunque con alta especialización clínica).
+-   **PhD (Doctor of Philosophy)**: doctorado académico, el máximo nivel universitario.
+
+Para agruparlo por nivel académico hemos creado las siguientes categorías:
+
+-   **Bachillerato**: estudios preuniversitarios (p. ej. *Class 12*).
+-   **Grado**: titulaciones universitarias de primer ciclo (BA, BSc, B.Tech, MBBS, etc.).
+-   **Master**: titulaciones de segundo ciclo o posgrado (MA, MSc, MBA, M.Tech, MD, etc.).
+-   **Doctorado**: máximo nivel académico (PhD).
+
+```{r}
+degree_levels <- c("Bachillerato", "Grado", "Master", "Doctorado")
+
+df_students <- df_students %>%
+  mutate(Degree = str_remove_all(Degree, "['\"]")) %>%
+  filter(Degree != "Others") %>%
+  mutate(Degree = case_when(
+      Degree %in% c("Class 12") ~ "Bachillerato",
+      Degree %in% c(
+        "BA", "BSc", "B.Com", "BBA", "BCA", "B.Ed",
+        "LLB", "B.Tech", "BE", "B.Arch", "B.Pharm",
+        "BHM", "MBBS"
+      ) ~ "Grado",
+      Degree %in% c(
+        "MA", "MSc", "M.Com", "MBA", "M.Ed", "LLM",
+        "M.Tech", "ME", "M.Pharm", "MCA", "MHM", "MD"
+      ) ~ "Master",
+      Degree %in% c("PhD") ~ "Doctorado"
+    ),
+    Degree = factor(Degree, levels = degree_levels,ordered = TRUE)
+  )
+```
+
+Convertimos también Gender a **factores**.
+
+```{r}
+df_students <- df_students %>%
+  mutate(
+    Gender = as.factor(Gender),
+  )
 ```
 
 ## 8. Gestión de outliers
 
-Para asegurar la calidad de los datos numéricos, identificamos y eliminamos valores atípicos en **Age** y **CGPA** utilizando el criterio del **Rango Intercuartílico** (IQR). Esto evita que valores extremos sesguen los resultados de modelos sensibles a la distancia.
+Para asegurar la calidad de los datos numéricos, identificamos y eliminamos valores atípicos identificados en el notebook de visualización en la variable **CGPA** utilizando el criterio del **Rango intercuartílico** (IQR). Esto evita que valores extremos sesguen los resultados de modelos sensibles a la distancia.
 
 ```{r}
-# plantear a lo mejor dejarlo
-numeric_cols_outliers <- c("Age", "CGPA")
+numeric_cols_outliers <- c("CGPA")
 
 remove_outliers <- function(data, variable) {
   Q1 <- quantile(data[[variable]], 0.25, na.rm = TRUE)
@@ -181,9 +234,10 @@ remove_outliers <- function(data, variable) {
 for (col in numeric_cols_outliers) {
   df_students <- remove_outliers(df_students, col)
 }
-
 ```
 
+
+<!--
 ## 9. Generación de Datasets para Minería de Datos
 
 En esta fase final del preprocesamiento, generaremos las distintas versiones del dataset necesarias para las tareas de minería de datos. Además, aplicaremos una Selección de atributos basada en filtros para eliminar variables redundantes generadas por la codificación *dummy*, mejorando así la calidad de los datos antes de guardarlos
@@ -348,3 +402,5 @@ Tras ejecutar el pipeline completo de limpieza y transformación, hemos obtenido
 ```{r}
 
 ```
+
+-->

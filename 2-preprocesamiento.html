@@ -1492,16 +1492,16 @@ Linares Barrera, Daniel Vela Camacho</h4>
 para dejar nuestro dataset listo para análisis más avanzados y modelado
 predictivo. Entre las tareas principales se incluyen:</p>
 <ul>
-<li><p>Filtrado de participantes que no sean estudiantes.</p></li>
-<li><p>Eliminación de columnas irrelevantes.</p></li>
-<li><p>Recodificación de variables categóricas binarias (“Yes”/“No”) a
-numéricas.</p></li>
-<li><p>Discretización y codificación de variables ordinales, como la
-duración del sueño.</p></li>
-<li><p>Posible agrupación o recodificación de variables con niveles poco
-representativos.</p></li>
-<li><p>Identificación y tratamiento de valores extremos en variables
-numéricas.</p></li>
+<li>Filtrado de participantes que no sean estudiantes.</li>
+<li>Eliminación de columnas irrelevantes.</li>
+<li>Recodificación de variables categóricas binarias (“Yes”/“No”) a
+numéricas.</li>
+<li>Discretización y codificación de variables ordinales, como la
+duración del sueño.</li>
+<li>Posible agrupación o recodificación de variables con niveles poco
+representativos.</li>
+<li>Identificación y tratamiento de valores extremos en variables
+numéricas.</li>
 </ul>
 <p>Antes de comenzar, vamos a importar las librerías que nos van a hacer
 falta en este notebook.</p>
@@ -1522,6 +1522,7 @@ library(stringr)
 library(caret)</code></pre>
 <pre><code>## Warning: package &#39;caret&#39; was built under R version 4.5.2</code></pre>
 <pre><code>## Cargando paquete requerido: ggplot2</code></pre>
+<pre><code>## Warning: package &#39;ggplot2&#39; was built under R version 4.5.2</code></pre>
 <pre><code>## Cargando paquete requerido: lattice</code></pre>
 <div id="lectura-del-dataset" class="section level2">
 <h2>1. Lectura del dataset</h2>
@@ -1558,9 +1559,8 @@ head(data)</code></pre>
 ## 5              1.0                               No          0
 ## 6              1.0                               No          0</code></pre>
 </div>
-<div id="filtrado-por-estudiantes-y-eliminación-de-columnas-innecesarias" class="section level2">
-<h2>2. Filtrado por estudiantes y eliminación de columnas
-innecesarias</h2>
+<div id="filtrado-inicial-y-limpieza-estructural" class="section level2">
+<h2>2. Filtrado inicial y limpieza estructural</h2>
 <p>Como hemos comentado en la parte de visualización del dataset, la
 mayoría de participantes son estudiantes, por lo que vamos a hacer un
 filtro para quedarnos únicamente con los estudiantes y vamos a eliminar
@@ -1607,23 +1607,20 @@ head(df_students)</code></pre>
 ## 4                              Yes          1
 ## 5                               No          0
 ## 6                               No          0</code></pre>
-</div>
-<div id="renombrar-variables" class="section level2">
-<h2>3. Renombrar variables</h2>
-<p>Vamos a renombrar el nombre de cierta variables para que sea más
+<p>A continuación, vamos a renombrar ciertas variables para que sea más
 comodo trabajar con ellas.</p>
 <pre class="r"><code>df_students &lt;- df_students %&gt;%
   rename(Had.suicidal.thoughts=Have.you.ever.had.suicidal.thoughts.., 
          Family.History.Mental.Illness=Family.History.of.Mental.Illness)</code></pre>
 </div>
-<div id="limpieza-de-valores-nulos-no-estándar" class="section level2">
-<h2>4. Limpieza de valores nulos no estándar</h2>
-<p>Hemos detectado que la variable <code>Financial.Stress</code>
-contiene valores representados por el carácter <code>?</code>. Estos
-valores constituyen ruido y no permiten la conversión numérica.
-Procedemos a filtrar estos registros antes de transformar la variable,
-siguiendo las prácticas de limpieza de datos para eliminar valores
-inconsistentes.</p>
+<div id="limpieza-de-valores-inconsistentes" class="section level2">
+<h2>4. Limpieza de valores inconsistentes</h2>
+<p>En la visualización detectamos que la variable
+<code>Financial.Stress</code> contiene valores representados por el
+carácter <code>?</code>. Estos valores constituyen ruido y no permiten
+la conversión numérica. Procedemos a filtrar estos registros antes de
+transformar la variable, siguiendo las prácticas de limpieza de datos
+para eliminar valores inconsistentes.</p>
 <pre class="r"><code>df_students &lt;- df_students %&gt;%
   filter(Financial.Stress != &quot;?&quot;) %&gt;%
   mutate(Financial.Stress = as.numeric(Financial.Stress))</code></pre>
@@ -1635,15 +1632,15 @@ representación numérica (1/0) para que puedan ser procesadas
 matemáticamente por los algoritmos de modelado posteriores.</p>
 <pre class="r"><code>df_students &lt;- df_students %&gt;%
   mutate(
-    Had.suicidal.thoughts = ifelse(Had.suicidal.thoughts == &quot;Yes&quot;, 1, 0),
-    Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == &quot;Yes&quot;, 1, 0)
+    Had.suicidal.thoughts = ifelse(Had.suicidal.thoughts == &quot;Yes&quot;, 1,0),
+    Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == &quot;Yes&quot;, 1,0)
   )</code></pre>
 </div>
-<div id="tratamiento-de-variables-ordinales-y-limpieza-de-texto" class="section level2">
-<h2>6. Tratamiento de variables ordinales y limpieza de texto</h2>
-<p>La variable <strong>Sleep.Duration</strong> presenta inconsistencias
-de formato: los valores están encerrados entre comillas (ej. ‘Less than
-5 hours’) y existe una categoría “Others” no informativa. Dado que la
+<div id="tratamiento-de-variables-ordinales" class="section level2">
+<h2>6. Tratamiento de variables ordinales</h2>
+<p>La variable <code>Sleep.Duration</code> presenta inconsistencias de
+formato: los valores están encerrados entre comillas (ej. ‘Less than 5
+hours’) y existe una categoría “Others” no informativa. Dado que la
 manipulación de cadenas en R base puede resultar compleja, utilizaremos
 la <strong>librería stringr</strong> (mencionada como recurso
 recomendado en la documentación de R Base) para limpiar estos caracteres
@@ -1656,15 +1653,16 @@ cadena.</p></li>
 ser “Others”.</p></li>
 <li><p>Convertir la variable limpia a factor ordenado.</p></li>
 </ol>
-<pre class="r"><code>df_students &lt;- df_students %&gt;%
+<pre class="r"><code>sleep_duration_levels &lt;- c(&quot;Less than 5 hours&quot;, &quot;5-6 hours&quot;, &quot;7-8 hours&quot;, &quot;More than 8 hours&quot;)
+
+df_students &lt;- df_students %&gt;%
   mutate(Sleep.Duration = str_remove_all(Sleep.Duration, &quot;[&#39;\&quot;]&quot;)) %&gt;%
   filter(Sleep.Duration != &quot;Others&quot;) %&gt;%
   mutate(
-    Sleep.Duration = factor(Sleep.Duration, 
-                            levels = c(&quot;Less than 5 hours&quot;, &quot;5-6 hours&quot;, &quot;7-8 hours&quot;, &quot;More than 8 hours&quot;), 
+    Sleep.Duration = factor(Sleep.Duration, levels = sleep_duration_levels, 
                             ordered = TRUE)
   )</code></pre>
-<p>Aplicamos una lógica similar para <strong>Dietary.Habits</strong>,
+<p>Aplicamos una lógica similar para <code>Dietary.Habits</code>,
 estableciendo un orden de calidad en la dieta y eliminando registros no
 informativos si los hubiera.</p>
 <pre class="r"><code>df_students &lt;- df_students %&gt;%
@@ -1677,35 +1675,132 @@ informativos si los hubiera.</p>
 </div>
 <div id="reducción-de-cardinalidad-en-variables-categóricas" class="section level2">
 <h2>7. Reducción de cardinalidad en variables categóricas</h2>
-<p>La variable Degree posee un <strong>alto número de categorías con
-baja frecuencia</strong>, lo que puede dificultar el aprendizaje de los
-modelos. Agrupamos las titulaciones minoritarias bajo la etiqueta
-“Other”, manteniendo únicamente las 10 más frecuentes. Convertimos
-también Gender y City a <strong>factores</strong> para su correcta
-gestión en el primer dataset.</p>
-<pre class="r"><code># cambiar por nivel u otra cosa
-top_degrees &lt;- df_students %&gt;%
-  count(Degree) %&gt;%
-  top_n(10, wt = n) %&gt;%
-  pull(Degree)
+<p>La variable <code>City</code> posee un <strong>alto número de
+categorías con baja frecuencia</strong>, lo que puede dificultar el
+aprendizaje de los modelos. Agrupamos las titulaciones minoritarias bajo
+la etiqueta “Other”, manteniendo únicamente las 10 más frecuentes.</p>
+<pre class="r"><code>top_cities &lt;- df_students %&gt;%
+  count(City) %&gt;%
+  top_n(25, wt = n) %&gt;%
+  pull(City)
 
 df_students &lt;- df_students %&gt;%
   mutate(
-    Degree = ifelse(Degree %in% top_degrees, Degree, &quot;Other&quot;),
-    Degree = as.factor(Degree),
-    Gender = as.factor(Gender),
+    City = ifelse(City %in% top_cities, City, &quot;Other&quot;),
     City = as.factor(City)
+  )</code></pre>
+<p>Con la variable <code>Degree</code> ocurre algo parecido que con la
+variable <code>City</code>, pero ahora vamos a darle otro enfoque. Vamos
+a agrupar por <strong>nivel académico</strong></p>
+<pre class="r"><code>unique(df_students$Degree)</code></pre>
+<pre><code>##  [1] &quot;B.Pharm&quot;    &quot;BSc&quot;        &quot;BA&quot;         &quot;BCA&quot;        &quot;M.Tech&quot;    
+##  [6] &quot;PhD&quot;        &quot;&#39;Class 12&#39;&quot; &quot;B.Ed&quot;       &quot;LLB&quot;        &quot;BE&quot;        
+## [11] &quot;M.Ed&quot;       &quot;MSc&quot;        &quot;BHM&quot;        &quot;M.Pharm&quot;    &quot;MCA&quot;       
+## [16] &quot;MA&quot;         &quot;B.Com&quot;      &quot;MD&quot;         &quot;MBA&quot;        &quot;MBBS&quot;      
+## [21] &quot;M.Com&quot;      &quot;B.Arch&quot;     &quot;LLM&quot;        &quot;B.Tech&quot;     &quot;BBA&quot;       
+## [26] &quot;ME&quot;         &quot;MHM&quot;        &quot;Others&quot;</code></pre>
+<p>Según lo que hemos investigado (<a href="https://www.cbse.gov.in/" class="uri">https://www.cbse.gov.in/</a>, <a href="https://www.barcouncilofindia.org/" class="uri">https://www.barcouncilofindia.org/</a>, <a href="https://www.coa.gov.in/" class="uri">https://www.coa.gov.in/</a>,
+<a href="https://www.pci.nic.in/" class="uri">https://www.pci.nic.in/</a>, <a href="https://www.nmc.org.in/" class="uri">https://www.nmc.org.in/</a>),
+cada estudio significa lo siguiente:</p>
+<ul>
+<li><strong>Class 12</strong>: equivalente al bachillerato o secundaria
+superior india. Es el nivel previo a la universidad.</li>
+<li><strong>BA (Bachelor of Arts)</strong>: grado universitario en
+artes, humanidades o ciencias sociales.</li>
+<li><strong>BSc (Bachelor of Science)</strong>: grado en ciencias, como
+matemáticas, física, biología, química, etc.</li>
+<li><strong>B.Com (Bachelor of Commerce)</strong>: grado en comercio,
+contabilidad, finanzas o gestión empresarial.</li>
+<li><strong>BBA (Bachelor of Business Administration)</strong>: grado
+orientado a administración y gestión de empresas.</li>
+<li><strong>BCA (Bachelor of Computer Applications)</strong>: grado
+especializado en informática aplicada y software.</li>
+<li><strong>B.Ed (Bachelor of Education)</strong>: grado profesional
+para convertirse en docente.</li>
+<li><strong>LLB (Bachelor of Laws)</strong>: grado de derecho; habilita
+para ejercer como abogado en India.</li>
+<li><strong>B.Tech (Bachelor of Technology)</strong> y <strong>BE
+(Bachelor of Engineering)</strong>: grados de ingeniería técnica; ambos
+equivalentes en la práctica.</li>
+<li><strong>B.Arch (Bachelor of Architecture)</strong>: grado
+profesional en arquitectura.</li>
+<li><strong>B.Pharm (Bachelor of Pharmacy)</strong>: grado en farmacia
+para trabajar con medicamentos y formulación.</li>
+<li><strong>BHM (Bachelor of Hotel Management)</strong>: grado en
+gestión hotelera y turismo.</li>
+<li><strong>MBBS (Bachelor of Medicine, Bachelor of Surgery)</strong>:
+carrera de medicina. Es el título básico para convertirse en
+médico.</li>
+<li><strong>MA (Master of Arts)</strong>: posgrado en humanidades o
+ciencias sociales.</li>
+<li><strong>MSc (Master of Science)</strong>: posgrado en disciplinas
+científicas.</li>
+<li><strong>M.Com (Master of Commerce)</strong>: posgrado en finanzas,
+contabilidad o comercio.</li>
+<li><strong>MBA (Master of Business Administration)</strong>: máster
+especializado en gestión empresarial.</li>
+<li><strong>M.Ed (Master of Education)</strong>: máster para profundizar
+en educación o pedagogía.</li>
+<li><strong>LLM (Master of Laws)</strong>: máster en derecho.</li>
+<li><strong>M.Tech (Master of Technology)</strong> y <strong>ME (Master
+of Engineering)</strong>: másteres en ingeniería.</li>
+<li><strong>M.Pharm (Master of Pharmacy)</strong>: máster en farmacia y
+ciencias farmacéuticas.</li>
+<li><strong>MCA (Master of Computer Applications)</strong>: máster en
+informática aplicada y desarrollo de software.</li>
+<li><strong>MHM (Master of Hotel Management)</strong>: máster en gestión
+hotelera.</li>
+<li><strong>MD (Doctor of Medicine)</strong>: especialización médica de
+posgrado (nivel máster, aunque con alta especialización clínica).</li>
+<li><strong>PhD (Doctor of Philosophy)</strong>: doctorado académico, el
+máximo nivel universitario.</li>
+</ul>
+<p>Para agruparlo por nivel académico hemos creado las siguientes
+categorías:</p>
+<ul>
+<li><strong>Bachillerato</strong>: estudios preuniversitarios (p. ej.
+<em>Class 12</em>).</li>
+<li><strong>Grado</strong>: titulaciones universitarias de primer ciclo
+(BA, BSc, B.Tech, MBBS, etc.).</li>
+<li><strong>Master</strong>: titulaciones de segundo ciclo o posgrado
+(MA, MSc, MBA, M.Tech, MD, etc.).</li>
+<li><strong>Doctorado</strong>: máximo nivel académico (PhD).</li>
+</ul>
+<pre class="r"><code>degree_levels &lt;- c(&quot;Bachillerato&quot;, &quot;Grado&quot;, &quot;Master&quot;, &quot;Doctorado&quot;)
+
+df_students &lt;- df_students %&gt;%
+  mutate(Degree = str_remove_all(Degree, &quot;[&#39;\&quot;]&quot;)) %&gt;%
+  filter(Degree != &quot;Others&quot;) %&gt;%
+  mutate(Degree = case_when(
+      Degree %in% c(&quot;Class 12&quot;) ~ &quot;Bachillerato&quot;,
+      Degree %in% c(
+        &quot;BA&quot;, &quot;BSc&quot;, &quot;B.Com&quot;, &quot;BBA&quot;, &quot;BCA&quot;, &quot;B.Ed&quot;,
+        &quot;LLB&quot;, &quot;B.Tech&quot;, &quot;BE&quot;, &quot;B.Arch&quot;, &quot;B.Pharm&quot;,
+        &quot;BHM&quot;, &quot;MBBS&quot;
+      ) ~ &quot;Grado&quot;,
+      Degree %in% c(
+        &quot;MA&quot;, &quot;MSc&quot;, &quot;M.Com&quot;, &quot;MBA&quot;, &quot;M.Ed&quot;, &quot;LLM&quot;,
+        &quot;M.Tech&quot;, &quot;ME&quot;, &quot;M.Pharm&quot;, &quot;MCA&quot;, &quot;MHM&quot;, &quot;MD&quot;
+      ) ~ &quot;Master&quot;,
+      Degree %in% c(&quot;PhD&quot;) ~ &quot;Doctorado&quot;
+    ),
+    Degree = factor(Degree, levels = degree_levels,ordered = TRUE)
+  )</code></pre>
+<p>Convertimos también Gender a <strong>factores</strong>.</p>
+<pre class="r"><code>df_students &lt;- df_students %&gt;%
+  mutate(
+    Gender = as.factor(Gender),
   )</code></pre>
 </div>
 <div id="gestión-de-outliers" class="section level2">
 <h2>8. Gestión de outliers</h2>
 <p>Para asegurar la calidad de los datos numéricos, identificamos y
-eliminamos valores atípicos en <strong>Age</strong> y
-<strong>CGPA</strong> utilizando el criterio del <strong>Rango
-Intercuartílico</strong> (IQR). Esto evita que valores extremos sesguen
-los resultados de modelos sensibles a la distancia.</p>
-<pre class="r"><code># plantear a lo mejor dejarlo
-numeric_cols_outliers &lt;- c(&quot;Age&quot;, &quot;CGPA&quot;)
+eliminamos valores atípicos identificados en el notebook de
+visualización en la variable <strong>CGPA</strong> utilizando el
+criterio del <strong>Rango intercuartílico</strong> (IQR). Esto evita
+que valores extremos sesguen los resultados de modelos sensibles a la
+distancia.</p>
+<pre class="r"><code>numeric_cols_outliers &lt;- c(&quot;CGPA&quot;)
 
 remove_outliers &lt;- function(data, variable) {
   Q1 &lt;- quantile(data[[variable]], 0.25, na.rm = TRUE)
@@ -1720,314 +1815,257 @@ remove_outliers &lt;- function(data, variable) {
 for (col in numeric_cols_outliers) {
   df_students &lt;- remove_outliers(df_students, col)
 }</code></pre>
-</div>
-<div id="generación-de-datasets-para-minería-de-datos" class="section level2">
-<h2>9. Generación de Datasets para Minería de Datos</h2>
-<p>En esta fase final del preprocesamiento, generaremos las distintas
-versiones del dataset necesarias para las tareas de minería de datos.
-Además, aplicaremos una Selección de atributos basada en filtros para
-eliminar variables redundantes generadas por la codificación
-<em>dummy</em>, mejorando así la calidad de los datos antes de
-guardarlos</p>
-<div id="dataset-1-variables-como-factores" class="section level3">
-<h3>9.1 Dataset 1: Variables como factores</h3>
-<p>Esta versión mantiene las variables categóricas y ordinales como
-factores de R. Es la versión adecuada para algoritmos basados en árboles
-de decisión (rpart) y para visualización semántica, donde la
-multicolinealidad no es tan crítica o el propio algoritmo la
-gestiona.</p>
-<pre class="r"><code>df_factors &lt;- df_students
-write.csv(df_factors, &quot;./data/student_depression_clean_factors.csv&quot;, row.names = FALSE)</code></pre>
-</div>
-<div id="dataset-2-codificación-numérica-y-selección-de-atributos" class="section level3">
-<h3>9.2 Dataset 2: Codificación numérica y selección de atributos</h3>
-<p>A continuación, procedemos a transformar los datos para obtener una
-matriz puramente numérica. En primer lugar, convertimos las variables
-ordinales (Sleep.Duration y Dietary.Habits) a su representación entera,
-preservando el orden implícito que poseen.</p>
-<pre class="r"><code>df_numeric_temp &lt;- df_factors %&gt;%
+<!--
+## 9. Generación de Datasets para Minería de Datos
+
+En esta fase final del preprocesamiento, generaremos las distintas versiones del dataset necesarias para las tareas de minería de datos. Además, aplicaremos una Selección de atributos basada en filtros para eliminar variables redundantes generadas por la codificación *dummy*, mejorando así la calidad de los datos antes de guardarlos
+
+### 9.1 Dataset 1: Variables como factores
+
+Esta versión mantiene las variables categóricas y ordinales como factores de R. Es la versión adecuada para algoritmos basados en árboles de decisión (rpart) y para visualización semántica, donde la multicolinealidad no es tan crítica o el propio algoritmo la gestiona.
+
+
+``` r
+df_factors <- df_students
+write.csv(df_factors, "./data/student_depression_clean_factors.csv", row.names = FALSE)
+```
+
+### 9.2 Dataset 2: Codificación numérica y selección de atributos
+
+A continuación, procedemos a transformar los datos para obtener una matriz puramente numérica. En primer lugar, convertimos las variables ordinales (Sleep.Duration y Dietary.Habits) a su representación entera, preservando el orden implícito que poseen.
+
+
+``` r
+df_numeric_temp <- df_factors %>%
   mutate(
     Sleep.Duration = as.numeric(Sleep.Duration),
     Dietary.Habits = as.numeric(Dietary.Habits)
-  )</code></pre>
-<p>Las <strong>variables nominales</strong> (Gender, City, Degree) no
-tienen un orden matemático, por lo que utilizamos la técnica de
-<strong>One-Hot Encoding</strong> (variables dummy). Esto expande cada
-categoría en una nueva columna binaria. Utilizamos la función dummyVars
-del paquete caret para crear este modelo de transformación.</p>
-<pre class="r"><code>dummies_model &lt;- dummyVars(~ Gender + City + Degree, data = df_numeric_temp)
-df_dummies &lt;- predict(dummies_model, newdata = df_numeric_temp)
-df_dummies &lt;- as.data.frame(df_dummies)</code></pre>
-<p>Unimos las nuevas variables dummy al dataset original numérico y
-eliminamos las columnas categóricas originales, ya que han sido
-sustituidas.</p>
-<pre class="r"><code>df_numeric_full &lt;- cbind(df_numeric_temp, df_dummies) %&gt;%
-  select(-Gender, -City, -Degree)</code></pre>
-<p>Al generar variables dummy, es común introducir redundancia
-(multicolinealidad) en los datos. Para mitigar esto, aplicamos una
-técnica de Selección de Atributos (Filtro). Primero, calculamos la
-matriz de correlación de todas las variables predictoras, excluyendo la
-variable objetivo (Depression).</p>
-<pre class="r"><code>cor_matrix &lt;- cor(df_numeric_full[, setdiff(names(df_numeric_full), &quot;Depression&quot;)])</code></pre>
-<p>Utilizamos la función findCorrelation de caret para identificar
-automáticamente las variables que tienen una correlación absoluta
-superior a 0.75. Esta función nos devuelve los índices de las columnas
-que deben eliminarse para reducir la redundancia.</p>
-<pre class="r"><code>high_cor_indices &lt;- findCorrelation(cor_matrix, cutoff = 0.75)
-redundant_vars &lt;- colnames(cor_matrix)[high_cor_indices]
+  )
+```
 
-cat(&quot;Variables eliminadas por alta correlación (&gt; 0.75):\n&quot;)</code></pre>
-<pre><code>## Variables eliminadas por alta correlación (&gt; 0.75):</code></pre>
-<pre class="r"><code>print(redundant_vars)</code></pre>
-<pre><code>## [1] &quot;Gender.Female&quot;</code></pre>
-<p>Tras aplicar el filtro de correlación con un umbral de 0.75, el
-algoritmo ha identificado y eliminado la variable
-<code>Gender.Female</code>. Esto es un comportamiento esperado y
-deseable. Al realizar la codificación <em>One-Hot</em> sobre la variable
-binaria original <code>Gender</code> (Male/Female), se generaron dos
-columnas (<code>Gender.Male</code> y <code>Gender.Female</code>) que son
-perfectamente colineales (si un estudiante no es hombre, necesariamente
-es mujer, y viceversa).</p>
-<p>Mantener ambas columnas introduciría <strong>multicolinealidad
-perfecta</strong>, lo que puede desestabilizar modelos lineales como la
-Regresión Logística. La eliminación automática de una de ellas valida la
-eficacia de este paso de preprocesamiento.</p>
-<p>Finalmente, eliminamos dichas variables redundantes del dataset
-numérico y guardamos el resultado optimizado en un archivo CSV.</p>
-<pre class="r"><code>df_numeric_final &lt;- df_numeric_full %&gt;% select(-all_of(redundant_vars))
-write.csv(df_numeric_final, &quot;./data/student_depression_numeric.csv&quot;, row.names = FALSE)</code></pre>
-</div>
-<div id="dataset-3-normalización-min-max" class="section level3">
-<h3>9.3 Dataset 3: Normalización (Min-Max)</h3>
-<p>Observando el resumen estadístico del dataset numérico, vemos
-variables con rangos muy dispares: <code>Age</code> varía
-aproximadamente entre 18 y 60, mientras que <code>CGPA</code> lo hace
-entre 0 y 10, y las variables binarias entre 0 y 1.</p>
-<p>Para algoritmos basados en el cálculo de distancias (como k-NN, que
-utilizaremos en la siguiente fase) o basados en el descenso de gradiente
-(como Redes Neuronales), esta disparidad haría que la variable
-<code>Age</code> dominara el cálculo de la distancia sobre el resto. Al
-aplicar la normalización <strong>Min-Max</strong>, transformamos todas
-las variables predictoras al rango <span class="math inline">\([0,
-1]\)</span>, asegurando que todas contribuyan equitativamente al modelo.
-La variable objetivo <code>Depression</code> se excluye de este proceso
-para mantener su naturaleza binaria original.</p>
-<pre class="r"><code>cols_to_scale &lt;- setdiff(names(df_numeric_final), &quot;Depression&quot;)</code></pre>
-<p>Calculamos los parámetros de escalado utilizando la función
-preProcess de caret con el método “range”, que aplica una normalización
-Min-Max para llevar los valores al intervalo [0, 1].</p>
-<pre class="r"><code>process_minmax &lt;- preProcess(df_numeric_final[, cols_to_scale], method = c(&quot;range&quot;))</code></pre>
-<p>Aplicamos la transformación calculada a los datos.</p>
-<pre class="r"><code>df_normalized_values &lt;- predict(process_minmax, df_numeric_final[, cols_to_scale])</code></pre>
-<p>Reconstruimos el dataset final añadiendo de nuevo la variable
-objetivo Depression (que no debe ser escalada ya que es binaria) y
-guardamos el archivo CSV definitivo.</p>
-<pre class="r"><code>df_normalized_final &lt;- df_normalized_values %&gt;%
+Las **variables nominales** (Gender, City, Degree) no tienen un orden matemático, por lo que utilizamos la técnica de **One-Hot Encoding** (variables dummy). Esto expande cada categoría en una nueva columna binaria. Utilizamos la función dummyVars del paquete caret para crear este modelo de transformación.
+
+
+``` r
+dummies_model <- dummyVars(~ Gender + City + Degree, data = df_numeric_temp)
+df_dummies <- predict(dummies_model, newdata = df_numeric_temp)
+df_dummies <- as.data.frame(df_dummies)
+```
+
+Unimos las nuevas variables dummy al dataset original numérico y eliminamos las columnas categóricas originales, ya que han sido sustituidas.
+
+
+``` r
+df_numeric_full <- cbind(df_numeric_temp, df_dummies) %>%
+  select(-Gender, -City, -Degree)
+```
+
+Al generar variables dummy, es común introducir redundancia (multicolinealidad) en los datos. Para mitigar esto, aplicamos una técnica de Selección de Atributos (Filtro). Primero, calculamos la matriz de correlación de todas las variables predictoras, excluyendo la variable objetivo (Depression).
+
+
+``` r
+cor_matrix <- cor(df_numeric_full[, setdiff(names(df_numeric_full), "Depression")])
+```
+
+Utilizamos la función findCorrelation de caret para identificar automáticamente las variables que tienen una correlación absoluta superior a 0.75. Esta función nos devuelve los índices de las columnas que deben eliminarse para reducir la redundancia.
+
+
+``` r
+high_cor_indices <- findCorrelation(cor_matrix, cutoff = 0.75)
+redundant_vars <- colnames(cor_matrix)[high_cor_indices]
+
+cat("Variables eliminadas por alta correlación (> 0.75):\n")
+```
+
+```
+## Variables eliminadas por alta correlación (> 0.75):
+```
+
+``` r
+print(redundant_vars)
+```
+
+```
+## [1] "Gender.Female"
+```
+
+Tras aplicar el filtro de correlación con un umbral de 0.75, el algoritmo ha identificado y eliminado la variable `Gender.Female`. Esto es un comportamiento esperado y deseable. Al realizar la codificación *One-Hot* sobre la variable binaria original `Gender` (Male/Female), se generaron dos columnas (`Gender.Male` y `Gender.Female`) que son perfectamente colineales (si un estudiante no es hombre, necesariamente es mujer, y viceversa).
+
+Mantener ambas columnas introduciría **multicolinealidad perfecta**, lo que puede desestabilizar modelos lineales como la Regresión Logística. La eliminación automática de una de ellas valida la eficacia de este paso de preprocesamiento.
+
+Finalmente, eliminamos dichas variables redundantes del dataset numérico y guardamos el resultado optimizado en un archivo CSV.
+
+
+``` r
+df_numeric_final <- df_numeric_full %>% select(-all_of(redundant_vars))
+write.csv(df_numeric_final, "./data/student_depression_numeric.csv", row.names = FALSE)
+```
+
+### 9.3 Dataset 3: Normalización (Min-Max)
+
+Observando el resumen estadístico del dataset numérico, vemos variables con rangos muy dispares: `Age` varía aproximadamente entre 18 y 60, mientras que `CGPA` lo hace entre 0 y 10, y las variables binarias entre 0 y 1.
+
+Para algoritmos basados en el cálculo de distancias (como k-NN, que utilizaremos en la siguiente fase) o basados en el descenso de gradiente (como Redes Neuronales), esta disparidad haría que la variable `Age` dominara el cálculo de la distancia sobre el resto. Al aplicar la normalización **Min-Max**, transformamos todas las variables predictoras al rango $[0, 1]$, asegurando que todas contribuyan equitativamente al modelo. La variable objetivo `Depression` se excluye de este proceso para mantener su naturaleza binaria original.
+
+
+``` r
+cols_to_scale <- setdiff(names(df_numeric_final), "Depression")
+```
+
+Calculamos los parámetros de escalado utilizando la función preProcess de caret con el método "range", que aplica una normalización Min-Max para llevar los valores al intervalo [0, 1].
+
+
+``` r
+process_minmax <- preProcess(df_numeric_final[, cols_to_scale], method = c("range"))
+```
+
+Aplicamos la transformación calculada a los datos.
+
+
+``` r
+df_normalized_values <- predict(process_minmax, df_numeric_final[, cols_to_scale])
+```
+
+Reconstruimos el dataset final añadiendo de nuevo la variable objetivo Depression (que no debe ser escalada ya que es binaria) y guardamos el archivo CSV definitivo.
+
+
+``` r
+df_normalized_final <- df_normalized_values %>%
   mutate(Depression = df_numeric_final$Depression)
 
-write.csv(df_normalized_final, &quot;./data/student_depression_normalized.csv&quot;, row.names = FALSE)</code></pre>
-<p>El preprocesamiento ha concluido con éxito. Mostramos un resumen de
-las dimensiones y estructura del dataset final normalizado.</p>
-<pre class="r"><code>cat(&quot;Dimensiones finales (filas, columnas):&quot;, dim(df_normalized_final))</code></pre>
-<pre><code>## Dimensiones finales (filas, columnas): 27816 75</code></pre>
-<pre class="r"><code>summary(df_normalized_final)</code></pre>
-<pre><code>##       Age         Academic.Pressure      CGPA        Study.Satisfaction
-##  Min.   :0.0000   Min.   :0.0000    Min.   :0.0000   Min.   :0.0000    
-##  1st Qu.:0.1200   1st Qu.:0.4000    1st Qu.:0.2535   1st Qu.:0.4000    
-##  Median :0.2800   Median :0.6000    Median :0.5513   Median :0.6000    
-##  Mean   :0.3124   Mean   :0.6283    Mean   :0.5289   Mean   :0.5888    
-##  3rd Qu.:0.4800   3rd Qu.:0.8000    3rd Qu.:0.7827   3rd Qu.:0.8000    
-##  Max.   :1.0000   Max.   :1.0000    Max.   :1.0000   Max.   :1.0000    
+write.csv(df_normalized_final, "./data/student_depression_normalized.csv", row.names = FALSE)
+```
+
+El preprocesamiento ha concluido con éxito. Mostramos un resumen de las dimensiones y estructura del dataset final normalizado.
+
+
+``` r
+cat("Dimensiones finales (filas, columnas):", dim(df_normalized_final))
+```
+
+```
+## Dimensiones finales (filas, columnas): 27793 41
+```
+
+``` r
+summary(df_normalized_final)
+```
+
+```
+##       Age          Academic.Pressure      CGPA        Study.Satisfaction
+##  Min.   :0.00000   Min.   :0.0000    Min.   :0.0000   Min.   :0.0000    
+##  1st Qu.:0.07317   1st Qu.:0.4000    1st Qu.:0.2535   1st Qu.:0.4000    
+##  Median :0.17073   Median :0.6000    Median :0.5513   Median :0.6000    
+##  Mean   :0.19070   Mean   :0.6283    Mean   :0.5289   Mean   :0.5888    
+##  3rd Qu.:0.29268   3rd Qu.:0.8000    3rd Qu.:0.7827   3rd Qu.:0.8000    
+##  Max.   :1.00000   Max.   :1.0000    Max.   :1.0000   Max.   :1.0000    
 ##  Sleep.Duration   Dietary.Habits   Had.suicidal.thoughts Work.Study.Hours
 ##  Min.   :0.0000   Min.   :0.0000   Min.   :0.0000        Min.   :0.0000  
 ##  1st Qu.:0.0000   1st Qu.:0.0000   1st Qu.:0.0000        1st Qu.:0.3333  
 ##  Median :0.3333   Median :0.5000   Median :1.0000        Median :0.6667  
-##  Mean   :0.4664   Mean   :0.4521   Mean   :0.6327        Mean   :0.5966  
+##  Mean   :0.4664   Mean   :0.4522   Mean   :0.6327        Mean   :0.5967  
 ##  3rd Qu.:0.6667   3rd Qu.:1.0000   3rd Qu.:1.0000        3rd Qu.:0.8333  
 ##  Max.   :1.0000   Max.   :1.0000   Max.   :1.0000        Max.   :1.0000  
 ##  Financial.Stress Family.History.Mental.Illness  Gender.Male    
-##  Min.   :0.0000   Min.   :0.000                 Min.   :0.0000  
-##  1st Qu.:0.2500   1st Qu.:0.000                 1st Qu.:0.0000  
-##  Median :0.5000   Median :0.000                 Median :1.0000  
-##  Mean   :0.5349   Mean   :0.484                 Mean   :0.5573  
-##  3rd Qu.:0.7500   3rd Qu.:1.000                 3rd Qu.:1.0000  
-##  Max.   :1.0000   Max.   :1.000                 Max.   :1.0000  
-##  City.&#39;Less Delhi&#39;   City.&#39;Less than 5 Kalyan&#39;    City.3.0        
-##  Min.   :0.000e+00   Min.   :0.000e+00         Min.   :0.000e+00  
-##  1st Qu.:0.000e+00   1st Qu.:0.000e+00         1st Qu.:0.000e+00  
-##  Median :0.000e+00   Median :0.000e+00         Median :0.000e+00  
-##  Mean   :3.595e-05   Mean   :3.595e-05         Mean   :3.595e-05  
-##  3rd Qu.:0.000e+00   3rd Qu.:0.000e+00         3rd Qu.:0.000e+00  
-##  Max.   :1.000e+00   Max.   :1.000e+00         Max.   :1.000e+00  
-##    City.Agra       City.Ahmedabad    City.Bangalore    City.Bhavna      
-##  Min.   :0.00000   Min.   :0.00000   Min.   :0.0000   Min.   :0.00e+00  
-##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.0000   1st Qu.:0.00e+00  
-##  Median :0.00000   Median :0.00000   Median :0.0000   Median :0.00e+00  
-##  Mean   :0.03915   Mean   :0.03394   Mean   :0.0275   Mean   :7.19e-05  
-##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.0000   3rd Qu.:0.00e+00  
-##  Max.   :1.00000   Max.   :1.00000   Max.   :1.0000   Max.   :1.00e+00  
-##   City.Bhopal       City.Chennai       City.City          City.Delhi    
-##  Min.   :0.00000   Min.   :0.00000   Min.   :0.00e+00   Min.   :0.0000  
-##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00e+00   1st Qu.:0.0000  
-##  Median :0.00000   Median :0.00000   Median :0.00e+00   Median :0.0000  
-##  Mean   :0.03351   Mean   :0.03171   Mean   :7.19e-05   Mean   :0.0275  
-##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00e+00   3rd Qu.:0.0000  
-##  Max.   :1.00000   Max.   :1.00000   Max.   :1.00e+00   Max.   :1.0000  
-##  City.Faridabad     City.Gaurav        City.Ghaziabad      City.Harsh       
-##  Min.   :0.00000   Min.   :0.000e+00   Min.   :0.00000   Min.   :0.000e+00  
-##  1st Qu.:0.00000   1st Qu.:0.000e+00   1st Qu.:0.00000   1st Qu.:0.000e+00  
-##  Median :0.00000   Median :0.000e+00   Median :0.00000   Median :0.000e+00  
-##  Mean   :0.01654   Mean   :3.595e-05   Mean   :0.02668   Mean   :3.595e-05  
-##  3rd Qu.:0.00000   3rd Qu.:0.000e+00   3rd Qu.:0.00000   3rd Qu.:0.000e+00  
-##  Max.   :1.00000   Max.   :1.000e+00   Max.   :1.00000   Max.   :1.000e+00  
-##   City.Harsha       City.Hyderabad     City.Indore       City.Jaipur     
-##  Min.   :0.00e+00   Min.   :0.00000   Min.   :0.00000   Min.   :0.00000  
-##  1st Qu.:0.00e+00   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000  
-##  Median :0.00e+00   Median :0.00000   Median :0.00000   Median :0.00000  
-##  Mean   :7.19e-05   Mean   :0.04807   Mean   :0.02308   Mean   :0.03714  
-##  3rd Qu.:0.00e+00   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000  
-##  Max.   :1.00e+00   Max.   :1.00000   Max.   :1.00000   Max.   :1.00000  
-##   City.Kalyan       City.Kanpur      City.Khaziabad       City.Kibara       
-##  Min.   :0.00000   Min.   :0.00000   Min.   :0.000e+00   Min.   :0.000e+00  
-##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.000e+00   1st Qu.:0.000e+00  
-##  Median :0.00000   Median :0.00000   Median :0.000e+00   Median :0.000e+00  
-##  Mean   :0.05619   Mean   :0.02179   Mean   :3.595e-05   Mean   :3.595e-05  
-##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.000e+00   3rd Qu.:0.000e+00  
-##  Max.   :1.00000   Max.   :1.00000   Max.   :1.000e+00   Max.   :1.000e+00  
-##   City.Kolkata      City.Lucknow     City.Ludhiana       City.M.Com       
-##  Min.   :0.00000   Min.   :0.00000   Min.   :0.00000   Min.   :0.000e+00  
-##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.000e+00  
-##  Median :0.00000   Median :0.00000   Median :0.00000   Median :0.000e+00  
-##  Mean   :0.03825   Mean   :0.04142   Mean   :0.03976   Mean   :3.595e-05  
-##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.000e+00  
-##  Max.   :1.00000   Max.   :1.00000   Max.   :1.00000   Max.   :1.000e+00  
-##   City.M.Tech           City.ME           City.Meerut        City.Mihir       
-##  Min.   :0.000e+00   Min.   :0.000e+00   Min.   :0.00000   Min.   :0.000e+00  
-##  1st Qu.:0.000e+00   1st Qu.:0.000e+00   1st Qu.:0.00000   1st Qu.:0.000e+00  
-##  Median :0.000e+00   Median :0.000e+00   Median :0.00000   Median :0.000e+00  
-##  Mean   :3.595e-05   Mean   :3.595e-05   Mean   :0.02944   Mean   :3.595e-05  
-##  3rd Qu.:0.000e+00   3rd Qu.:0.000e+00   3rd Qu.:0.00000   3rd Qu.:0.000e+00  
-##  Max.   :1.000e+00   Max.   :1.000e+00   Max.   :1.00000   Max.   :1.000e+00  
-##    City.Mira          City.Mumbai       City.Nagpur      City.Nalini       
-##  Min.   :0.000e+00   Min.   :0.00000   Min.   :0.0000   Min.   :0.000e+00  
-##  1st Qu.:0.000e+00   1st Qu.:0.00000   1st Qu.:0.0000   1st Qu.:0.000e+00  
-##  Median :0.000e+00   Median :0.00000   Median :0.0000   Median :0.000e+00  
-##  Mean   :3.595e-05   Mean   :0.02506   Mean   :0.0233   Mean   :3.595e-05  
-##  3rd Qu.:0.000e+00   3rd Qu.:0.00000   3rd Qu.:0.0000   3rd Qu.:0.000e+00  
-##  Max.   :1.000e+00   Max.   :1.00000   Max.   :1.0000   Max.   :1.000e+00  
-##   City.Nalyan         City.Nandini        City.Nashik        City.Patna     
-##  Min.   :0.000e+00   Min.   :0.000e+00   Min.   :0.00000   Min.   :0.00000  
-##  1st Qu.:0.000e+00   1st Qu.:0.000e+00   1st Qu.:0.00000   1st Qu.:0.00000  
-##  Median :0.000e+00   Median :0.000e+00   Median :0.00000   Median :0.00000  
-##  Mean   :3.595e-05   Mean   :3.595e-05   Mean   :0.01959   Mean   :0.03617  
-##  3rd Qu.:0.000e+00   3rd Qu.:0.000e+00   3rd Qu.:0.00000   3rd Qu.:0.00000  
-##  Max.   :1.000e+00   Max.   :1.000e+00   Max.   :1.00000   Max.   :1.00000  
-##    City.Pune        City.Rajkot        City.Rashi         City.Reyansh      
-##  Min.   :0.00000   Min.   :0.00000   Min.   :0.000e+00   Min.   :0.000e+00  
-##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.000e+00   1st Qu.:0.000e+00  
-##  Median :0.00000   Median :0.00000   Median :0.000e+00   Median :0.000e+00  
-##  Mean   :0.03476   Mean   :0.02923   Mean   :3.595e-05   Mean   :3.595e-05  
-##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.000e+00   3rd Qu.:0.000e+00  
-##  Max.   :1.00000   Max.   :1.00000   Max.   :1.000e+00   Max.   :1.000e+00  
-##   City.Saanvi       City.Srinagar       City.Surat        City.Thane     
-##  Min.   :0.00e+00   Min.   :0.00000   Min.   :0.00000   Min.   :0.00000  
-##  1st Qu.:0.00e+00   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000  
-##  Median :0.00e+00   Median :0.00000   Median :0.00000   Median :0.00000  
-##  Mean   :7.19e-05   Mean   :0.04922   Mean   :0.03872   Mean   :0.04095  
-##  3rd Qu.:0.00e+00   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000  
-##  Max.   :1.00e+00   Max.   :1.00000   Max.   :1.00000   Max.   :1.00000  
-##   City.Vaanya        City.Vadodara     City.Varanasi     City.Vasai-Virar 
-##  Min.   :0.000e+00   Min.   :0.00000   Min.   :0.00000   Min.   :0.00000  
-##  1st Qu.:0.000e+00   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000  
-##  Median :0.000e+00   Median :0.00000   Median :0.00000   Median :0.00000  
-##  Mean   :3.595e-05   Mean   :0.02481   Mean   :0.02459   Mean   :0.04627  
-##  3rd Qu.:0.000e+00   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000  
-##  Max.   :1.000e+00   Max.   :1.00000   Max.   :1.00000   Max.   :1.00000  
-##  City.Visakhapatnam Degree.&#39;Class 12&#39; Degree.B.Arch      Degree.B.Com    
-##  Min.   :0.00000    Min.   :0.0000    Min.   :0.00000   Min.   :0.00000  
-##  1st Qu.:0.00000    1st Qu.:0.0000    1st Qu.:0.00000   1st Qu.:0.00000  
-##  Median :0.00000    Median :0.0000    Median :0.00000   Median :0.00000  
-##  Mean   :0.03476    Mean   :0.2182    Mean   :0.05303   Mean   :0.05407  
-##  3rd Qu.:0.00000    3rd Qu.:0.0000    3rd Qu.:0.00000   3rd Qu.:0.00000  
-##  Max.   :1.00000    Max.   :1.0000    Max.   :1.00000   Max.   :1.00000  
-##   Degree.B.Ed      Degree.B.Tech       Degree.BCA        Degree.BHM     
+##  Min.   :0.0000   Min.   :0.0000                Min.   :0.0000  
+##  1st Qu.:0.2500   1st Qu.:0.0000                1st Qu.:0.0000  
+##  Median :0.5000   Median :0.0000                Median :1.0000  
+##  Mean   :0.5348   Mean   :0.4841                Mean   :0.5572  
+##  3rd Qu.:0.7500   3rd Qu.:1.0000                3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :1.0000                Max.   :1.0000  
+##    City.Agra       City.Ahmedabad    City.Bangalore     City.Bhopal    
+##  Min.   :0.00000   Min.   :0.00000   Min.   :0.00000   Min.   :0.0000  
+##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.0000  
+##  Median :0.00000   Median :0.00000   Median :0.00000   Median :0.0000  
+##  Mean   :0.03922   Mean   :0.03389   Mean   :0.02752   Mean   :0.0335  
+##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.0000  
+##  Max.   :1.00000   Max.   :1.00000   Max.   :1.00000   Max.   :1.0000  
+##   City.Chennai       City.Delhi      City.Ghaziabad   City.Hyderabad   
+##  Min.   :0.00000   Min.   :0.00000   Min.   :0.0000   Min.   :0.00000  
+##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.0000   1st Qu.:0.00000  
+##  Median :0.00000   Median :0.00000   Median :0.0000   Median :0.00000  
+##  Mean   :0.03177   Mean   :0.02752   Mean   :0.0267   Mean   :0.04807  
+##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.0000   3rd Qu.:0.00000  
+##  Max.   :1.00000   Max.   :1.00000   Max.   :1.0000   Max.   :1.00000  
+##   City.Jaipur       City.Kalyan      City.Kolkata      City.Lucknow    
+##  Min.   :0.00000   Min.   :0.0000   Min.   :0.00000   Min.   :0.00000  
+##  1st Qu.:0.00000   1st Qu.:0.0000   1st Qu.:0.00000   1st Qu.:0.00000  
+##  Median :0.00000   Median :0.0000   Median :0.00000   Median :0.00000  
+##  Mean   :0.03717   Mean   :0.0562   Mean   :0.03807   Mean   :0.04145  
+##  3rd Qu.:0.00000   3rd Qu.:0.0000   3rd Qu.:0.00000   3rd Qu.:0.00000  
+##  Max.   :1.00000   Max.   :1.0000   Max.   :1.00000   Max.   :1.00000  
+##  City.Ludhiana      City.Meerut       City.Mumbai        City.Other    
+##  Min.   :0.00000   Min.   :0.00000   Min.   :0.00000   Min.   :0.0000  
+##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.0000  
+##  Median :0.00000   Median :0.00000   Median :0.00000   Median :0.0000  
+##  Mean   :0.03983   Mean   :0.02947   Mean   :0.02497   Mean   :0.1052  
+##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.0000  
+##  Max.   :1.00000   Max.   :1.00000   Max.   :1.00000   Max.   :1.0000  
+##    City.Patna        City.Pune        City.Rajkot      City.Srinagar    
 ##  Min.   :0.00000   Min.   :0.00000   Min.   :0.00000   Min.   :0.00000  
 ##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000  
 ##  Median :0.00000   Median :0.00000   Median :0.00000   Median :0.00000  
-##  Mean   :0.06687   Mean   :0.04138   Mean   :0.05141   Mean   :0.03315  
+##  Mean   :0.03609   Mean   :0.03476   Mean   :0.02922   Mean   :0.04919  
 ##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000  
 ##  Max.   :1.00000   Max.   :1.00000   Max.   :1.00000   Max.   :1.00000  
-##  Degree.M.Tech       Degree.MCA        Degree.MSc      Degree.Other   
-##  Min.   :0.00000   Min.   :0.00000   Min.   :0.0000   Min.   :0.0000  
-##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.0000   1st Qu.:0.0000  
-##  Median :0.00000   Median :0.00000   Median :0.0000   Median :0.0000  
-##  Mean   :0.03667   Mean   :0.03732   Mean   :0.0426   Mean   :0.3653  
-##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.0000   3rd Qu.:1.0000  
-##  Max.   :1.00000   Max.   :1.00000   Max.   :1.0000   Max.   :1.0000  
-##    Depression    
-##  Min.   :0.0000  
-##  1st Qu.:0.0000  
-##  Median :1.0000  
-##  Mean   :0.5854  
-##  3rd Qu.:1.0000  
-##  Max.   :1.0000</code></pre>
-</div>
-</div>
-<div id="conclusiones" class="section level2">
-<h2>10. Conclusiones</h2>
-<p>Tras ejecutar el pipeline completo de limpieza y transformación,
-hemos obtenido un conjunto de datos robusto y preparado para la fase de
-modelado. A partir del análisis del dataset final (df_normalized),
-extraemos las siguientes conclusiones técnicas:</p>
-<ol style="list-style-type: decimal">
-<li>Reducción de Dimensionalidad Controlada:</li>
-</ol>
-<ul>
-<li><p>Partíamos de un dataset crudo con variables ruidosas. Tras la
-limpieza, el One-Hot Encoding y la selección de atributos, hemos
-consolidado un dataset con 75 columnas.</p></li>
-<li><p>Se ha mitigado la explosión de dimensionalidad derivada de la
-variable Degree agrupando las titulaciones minoritarias, lo que evita la
-dispersión de datos (sparsity).</p></li>
-<li><p>Se ha eliminado la redundancia introducida por las variables
-dummy binarias (ej. Género).</p></li>
-</ul>
-<ol start="2" style="list-style-type: decimal">
-<li>Calidad del Dato:</li>
-</ol>
-<ul>
-<li><p>No existen valores perdidos (NAs) ni caracteres
-extraños.</p></li>
-<li><p>Los valores atípicos (outliers) en Age y CGPA han sido filtrados
-utilizando el criterio IQR, lo que resultará en modelos más estables y
-menos sesgados por casos extremos.</p></li>
-</ul>
-<ol start="3" style="list-style-type: decimal">
-<li>Estado de la Variable Objetivo (Depression):</li>
-</ol>
-<ul>
-<li>Observando la media de la variable Depression en el resumen
-estadístico (Mean: 0.5855), concluimos que el dataset está
-razonablemente balanceado, con un 58.5% de casos positivos (estudiantes
-con depresión) frente a un 41.5% de casos negativos. Esto es una
-excelente noticia, ya que implica que no será estrictamente necesario
-aplicar técnicas de balanceo de clases (como SMOTE o Undersampling) en
-la fase de modelado, simplificando el flujo de trabajo.</li>
-</ul>
-<ol start="4" style="list-style-type: decimal">
-<li>Disponibilidad de Activos: Hemos exportado exitosamente tres
-versiones de los datos en la carpeta /data, cumpliendo con los
-requisitos de las distintas familias de algoritmos que exploraremos en
-los siguientes cuadernos:</li>
-</ol>
-<ul>
-<li><p>Árboles y Reglas: Utilizarán
-student_depression_clean_factors.csv.</p></li>
-<li><p>Modelos Probabilísticos: Podrán usar
-student_depression_numeric.csv.</p></li>
-<li><p>Modelos de Distancia (k-NN, SVM, Redes): Utilizarán
-student_depression_normalized.csv.</p></li>
-</ul>
+##    City.Surat        City.Thane      City.Vadodara     City.Varanasi    
+##  Min.   :0.00000   Min.   :0.00000   Min.   :0.00000   Min.   :0.00000  
+##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000  
+##  Median :0.00000   Median :0.00000   Median :0.00000   Median :0.00000  
+##  Mean   :0.03879   Mean   :0.04098   Mean   :0.02479   Mean   :0.02457  
+##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000  
+##  Max.   :1.00000   Max.   :1.00000   Max.   :1.00000   Max.   :1.00000  
+##  City.Vasai-Virar  City.Visakhapatnam    Degree.L         Degree.Q     
+##  Min.   :0.00000   Min.   :0.00000    Min.   :0.0000   Min.   :0.0000  
+##  1st Qu.:0.00000   1st Qu.:0.00000    1st Qu.:0.3333   1st Qu.:0.0000  
+##  Median :0.00000   Median :0.00000    Median :0.3333   Median :0.0000  
+##  Mean   :0.04627   Mean   :0.03476    Mean   :0.3678   Mean   :0.2371  
+##  3rd Qu.:0.00000   3rd Qu.:0.00000    3rd Qu.:0.6667   3rd Qu.:0.0000  
+##  Max.   :1.00000   Max.   :1.00000    Max.   :1.0000   Max.   :1.0000  
+##     Degree.C        Depression    
+##  Min.   :0.0000   Min.   :0.0000  
+##  1st Qu.:0.0000   1st Qu.:0.0000  
+##  Median :0.3333   Median :1.0000  
+##  Mean   :0.5637   Mean   :0.5852  
+##  3rd Qu.:1.0000   3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :1.0000
+```
+
+## 10. Conclusiones
+
+Tras ejecutar el pipeline completo de limpieza y transformación, hemos obtenido un conjunto de datos robusto y preparado para la fase de modelado. A partir del análisis del dataset final (df_normalized), extraemos las siguientes conclusiones técnicas:
+
+1.  Reducción de Dimensionalidad Controlada:
+
+-   Partíamos de un dataset crudo con variables ruidosas. Tras la limpieza, el One-Hot Encoding y la selección de atributos, hemos consolidado un dataset con 75 columnas.
+
+-   Se ha mitigado la explosión de dimensionalidad derivada de la variable Degree agrupando las titulaciones minoritarias, lo que evita la dispersión de datos (sparsity).
+
+-   Se ha eliminado la redundancia introducida por las variables dummy binarias (ej. Género).
+
+2.  Calidad del Dato:
+
+-   No existen valores perdidos (NAs) ni caracteres extraños.
+
+-   Los valores atípicos (outliers) en Age y CGPA han sido filtrados utilizando el criterio IQR, lo que resultará en modelos más estables y menos sesgados por casos extremos.
+
+3.  Estado de la Variable Objetivo (Depression):
+
+-   Observando la media de la variable Depression en el resumen estadístico (Mean: 0.5855), concluimos que el dataset está razonablemente balanceado, con un 58.5% de casos positivos (estudiantes con depresión) frente a un 41.5% de casos negativos. Esto es una excelente noticia, ya que implica que no será estrictamente necesario aplicar técnicas de balanceo de clases (como SMOTE o Undersampling) en la fase de modelado, simplificando el flujo de trabajo.
+
+4.  Disponibilidad de Activos: Hemos exportado exitosamente tres versiones de los datos en la carpeta /data, cumpliendo con los requisitos de las distintas familias de algoritmos que exploraremos en los siguientes cuadernos:
+
+-   Árboles y Reglas: Utilizarán student_depression_clean_factors.csv.
+
+-   Modelos Probabilísticos: Podrán usar student_depression_numeric.csv.
+
+-   Modelos de Distancia (k-NN, SVM, Redes): Utilizarán student_depression_normalized.csv.
+
+
+
+
+
+-->
 </div>
 </div>
 

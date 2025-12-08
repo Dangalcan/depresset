@@ -2269,7 +2269,7 @@ categóricas).</p>
 write.csv(df_factors, &quot;./data/student_depression_factors.csv&quot;,row.names = FALSE)</code></pre>
 </div>
 <div id="dataset-numérico-y-min-max-scaler-df_numeric_minmax" class="section level3">
-<h3>10.2 Dataset numérico y Min-Max scaler
+<h3>10.2. Dataset numérico y Min-Max scaler
 (<code>df_numeric_minmax</code>)</h3>
 <p>Primero construimos una versión totalmente numérica de
 df_students:</p>
@@ -2446,7 +2446,7 @@ head(df_numeric_minmax)</code></pre>
 <pre class="r"><code>write.csv(df_numeric_minmax, &quot;./data/student_depression_numeric_minmax.csv&quot;, 
           row.names = FALSE)</code></pre>
 <div id="reducción-de-dimensionalidad-mediante-información-mutua-dataset-min-max" class="section level4">
-<h4>10.2.1 Reducción de dimensionalidad mediante Información Mutua
+<h4>10.2.1. Reducción de dimensionalidad mediante Información Mutua
 (dataset Min-Max)</h4>
 <p>La <strong>Información Mutua (MI)</strong> mide cuánta información
 aporta cada variable para predecir la depresión, capturando relaciones
@@ -2554,7 +2554,7 @@ head(df_numeric_minmax_mi)</code></pre>
 </div>
 </div>
 <div id="dataset-numérico-y-standard-scaler-df_numeric_standard" class="section level3">
-<h3>10.3 Dataset numérico y Standard Scaler
+<h3>10.3. Dataset numérico y Standard Scaler
 (<code>df_numeric_standard</code>)</h3>
 <p>A partir del mismo dataset numérico <code>df_numeric_full</code>
 utilizado en el apartado anterior, aplicamos ahora un <strong>escalado
@@ -2691,15 +2691,11 @@ head(df_numeric_standard)</code></pre>
 ## 5         No
 ## 6         No</code></pre>
 <div id="reducción-de-dimensionalidad-mediante-información-mutua-dataset-standard-scaler" class="section level4">
-<h4>10.3.1 Reducción de dimensionalidad mediante Información Mutua
+<h4>10.3.1. Reducción de dimensionalidad mediante Información Mutua
 (dataset Standard Scaler)</h4>
 <p>La Información Mutua es <strong>invariante ante transformaciones
 monótonas</strong> como la normalización Min-Max o el escalado estándar
 (centrado y escalado). Por ello, el patrón de relevancia de las
-variables obtenido en el apartado 10.2.1 sigue siendo válido para el
-dataset estandarizado.La Información Mutua es invariante ante
-transformaciones monótonas como la normalización Min-Max o el escalado
-estándar (centrado y escalado). Por ello, el patrón de relevancia de las
 variables obtenido en el apartado 10.2.1 sigue siendo válido para el
 dataset estandarizado.</p>
 <p>Aun así, por coherencia con la estructura del documento, recalculamos

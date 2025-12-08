@@ -393,7 +393,7 @@ vars_dep_cat <- c(
   "City",
   "Sleep.Duration",
   "Dietary.Habits",
-  #"Degree",
+  "Degree",
   "Have.you.ever.had.suicidal.thoughts..",
   "Financial.Stress",
   "Family.History.of.Mental.Illness"

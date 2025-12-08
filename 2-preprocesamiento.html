@@ -1491,8 +1491,11 @@ Linares Barrera, Daniel Vela Camacho</h4>
 <p>En este apartado realizamos las transformaciones necesarias para
 dejar nuestro dataset listo para análisis más avanzados y modelado
 predictivo. El objetivo es pasar de los datos brutos a una versión
-limpia y estructurada, reduciendo ruido y complejidad innecesaria.</p>
-<p>Las principales tareas de este preprocesamiento son:</p>
+limpia, coherente y estructurada, reduciendo ruido y complejidad
+innecesaria y generando distintos <strong>datasets derivados</strong>
+adaptados a varios tipos de algoritmos de minería de datos.</p>
+<p>A lo largo de este proceso abordamos, entre otros, los siguientes
+aspectos:</p>
 <ul>
 <li>Filtrado de participantes que no sean estudiantes.</li>
 <li>Eliminación de columnas irrelevantes o constantes.</li>
@@ -1508,6 +1511,11 @@ agrupamos grados por nivel académico).</li>
 <li>Conversión de variables categóricas a factores ordenados.</li>
 <li>Identificación y tratamiento de valores extremos en variables
 numéricas.</li>
+<li>Generación de diferentes versiones del dataset (con factores,
+numérica normalizada, numérica estandarizada).</li>
+<li>Reducción de dimensionalidad mediante <strong>selección de atributos
+basada en Información Mutua</strong>, conservando únicamente las
+variables más relevantes para predecir la depresión.</li>
 </ul>
 <p>A continuación, detallamos cada paso.</p>
 <p>En primer lugar, vamos a importar las librerías que nos van a hacer
@@ -1531,6 +1539,9 @@ library(caret)</code></pre>
 <pre><code>## Cargando paquete requerido: ggplot2</code></pre>
 <pre><code>## Warning: package &#39;ggplot2&#39; was built under R version 4.5.2</code></pre>
 <pre><code>## Cargando paquete requerido: lattice</code></pre>
+<pre class="r"><code>#install.packages(&quot;FSelector&quot;)
+library(FSelector)</code></pre>
+<pre><code>## Warning: package &#39;FSelector&#39; was built under R version 4.5.2</code></pre>
 <div id="lectura-del-dataset" class="section level2">
 <h2>1. Lectura del dataset</h2>
 <p>Leemos el archivo CSV <code>student_depression_dataset.csv</code>
@@ -1728,6 +1739,34 @@ head(df_students)</code></pre>
 ## 4                4                5                             1          1
 ## 5                1                1                             0          0
 ## 6                4                1                             0          0</code></pre>
+<p>Y, de manera contraria, en la variable objetivo:</p>
+<pre class="r"><code>df_students &lt;- df_students %&gt;%
+  mutate(
+    Depression = ifelse(Depression == 1, &quot;Yes&quot;, &quot;No&quot;)
+  )
+
+head(df_students)</code></pre>
+<pre><code>##   Gender Age          City Academic.Pressure CGPA Study.Satisfaction
+## 1   Male  33 Visakhapatnam                 5 8.97                  2
+## 2 Female  24     Bangalore                 2 5.90                  5
+## 3   Male  31      Srinagar                 3 7.03                  5
+## 4 Female  28      Varanasi                 3 5.59                  2
+## 5 Female  25        Jaipur                 4 8.13                  3
+## 6   Male  29          Pune                 2 5.70                  3
+##        Sleep.Duration Dietary.Habits  Degree Had.suicidal.thoughts
+## 1         &#39;5-6 hours&#39;        Healthy B.Pharm                     1
+## 2         &#39;5-6 hours&#39;       Moderate     BSc                     0
+## 3 &#39;Less than 5 hours&#39;        Healthy      BA                     0
+## 4         &#39;7-8 hours&#39;       Moderate     BCA                     1
+## 5         &#39;5-6 hours&#39;       Moderate  M.Tech                     1
+## 6 &#39;Less than 5 hours&#39;        Healthy     PhD                     0
+##   Work.Study.Hours Financial.Stress Family.History.Mental.Illness Depression
+## 1                3                1                             0        Yes
+## 2                3                2                             1         No
+## 3                9                1                             1         No
+## 4                4                5                             1        Yes
+## 5                1                1                             0         No
+## 6                4                1                             0         No</code></pre>
 </div>
 <div id="tratamiento-de-variables-ordinales" class="section level2">
 <h2>5. Tratamiento de variables ordinales</h2>
@@ -1780,12 +1819,12 @@ head(df_students)</code></pre>
 ## 5         5-6 hours       Moderate  M.Tech                     1
 ## 6 Less than 5 hours        Healthy     PhD                     0
 ##   Work.Study.Hours Financial.Stress Family.History.Mental.Illness Depression
-## 1                3                1                             0          1
-## 2                3                2                             1          0
-## 3                9                1                             1          0
-## 4                4                5                             1          1
-## 5                1                1                             0          0
-## 6                4                1                             0          0</code></pre>
+## 1                3                1                             0        Yes
+## 2                3                2                             1         No
+## 3                9                1                             1         No
+## 4                4                5                             1        Yes
+## 5                1                1                             0         No
+## 6                4                1                             0         No</code></pre>
 </div>
 <div id="hábitos-dietéticos-dietary.habits" class="section level3">
 <h3>5.2. Hábitos dietéticos (<code>Dietary.Habits</code>)</h3>
@@ -1826,12 +1865,12 @@ head(df_students)</code></pre>
 ## 5         5-6 hours       Moderate  M.Tech                     1
 ## 6 Less than 5 hours        Healthy     PhD                     0
 ##   Work.Study.Hours Financial.Stress Family.History.Mental.Illness Depression
-## 1                3                1                             0          1
-## 2                3                2                             1          0
-## 3                9                1                             1          0
-## 4                4                5                             1          1
-## 5                1                1                             0          0
-## 6                4                1                             0          0</code></pre>
+## 1                3                1                             0        Yes
+## 2                3                2                             1         No
+## 3                9                1                             1         No
+## 4                4                5                             1        Yes
+## 5                1                1                             0         No
+## 6                4                1                             0         No</code></pre>
 </div>
 </div>
 <div id="reducción-de-cardinalidad-en-variables-categóricas" class="section level2">
@@ -1874,12 +1913,12 @@ head(df_students)</code></pre>
 ## 5         5-6 hours       Moderate  M.Tech                     1
 ## 6 Less than 5 hours        Healthy     PhD                     0
 ##   Work.Study.Hours Financial.Stress Family.History.Mental.Illness Depression
-## 1                3                1                             0          1
-## 2                3                2                             1          0
-## 3                9                1                             1          0
-## 4                4                5                             1          1
-## 5                1                1                             0          0
-## 6                4                1                             0          0</code></pre>
+## 1                3                1                             0        Yes
+## 2                3                2                             1         No
+## 3                9                1                             1         No
+## 4                4                5                             1        Yes
+## 5                1                1                             0         No
+## 6                4                1                             0         No</code></pre>
 </div>
 <div id="agrupación-de-titulaciones-académicas-degree" class="section level3">
 <h3>6.2. Agrupación de titulaciones académicas
@@ -2009,12 +2048,12 @@ head(df_students)</code></pre>
 ## 5         5-6 hours       Moderate    Master                     1
 ## 6 Less than 5 hours        Healthy Doctorado                     0
 ##   Work.Study.Hours Financial.Stress Family.History.Mental.Illness Depression
-## 1                3                1                             0          1
-## 2                3                2                             1          0
-## 3                9                1                             1          0
-## 4                4                5                             1          1
-## 5                1                1                             0          0
-## 6                4                1                             0          0</code></pre>
+## 1                3                1                             0        Yes
+## 2                3                2                             1         No
+## 3                9                1                             1         No
+## 4                4                5                             1        Yes
+## 5                1                1                             0         No
+## 6                4                1                             0         No</code></pre>
 </div>
 </div>
 <div id="conversión-de-otras-variables-categóricas-a-factores" class="section level2">
@@ -2044,12 +2083,12 @@ head(df_students)</code></pre>
 ## 5         5-6 hours       Moderate    Master                     1
 ## 6 Less than 5 hours        Healthy Doctorado                     0
 ##   Work.Study.Hours Financial.Stress Family.History.Mental.Illness Depression
-## 1                3                1                             0          1
-## 2                3                2                             1          0
-## 3                9                1                             1          0
-## 4                4                5                             1          1
-## 5                1                1                             0          0
-## 6                4                1                             0          0</code></pre>
+## 1                3                1                             0        Yes
+## 2                3                2                             1         No
+## 3                9                1                             1         No
+## 4                4                5                             1        Yes
+## 5                1                1                             0         No
+## 6                4                1                             0         No</code></pre>
 </div>
 <div id="gestión-de-outliers" class="section level2">
 <h2>8. Gestión de outliers</h2>
@@ -2102,15 +2141,15 @@ head(df_students)</code></pre>
 ## 5         5-6 hours       Moderate    Master                     1
 ## 6 Less than 5 hours        Healthy Doctorado                     0
 ##   Work.Study.Hours Financial.Stress Family.History.Mental.Illness Depression
-## 1                3                1                             0          1
-## 2                3                2                             1          0
-## 3                9                1                             1          0
-## 4                4                5                             1          1
-## 5                1                1                             0          0
-## 6                4                1                             0          0</code></pre>
+## 1                3                1                             0        Yes
+## 2                3                2                             1         No
+## 3                9                1                             1         No
+## 4                4                5                             1        Yes
+## 5                1                1                             0         No
+## 6                4                1                             0         No</code></pre>
 </div>
-<div id="dataset-final-para-trabajar" class="section level2">
-<h2>9. Dataset final para trabajar</h2>
+<div id="dataset-final" class="section level2">
+<h2>9. Dataset final</h2>
 <p>Comparamos el número de observaciones antes y después del
 preprocesamiento para cuantificar cuántos registros se han eliminado
 debido a filtros, limpieza de valores inconsistentes y tratamiento de
@@ -2141,12 +2180,12 @@ cat(&quot;Número de observaciones iniciales:&quot;, n_inicial, &quot;\n&quot;)<
 ## 5         5-6 hours       Moderate    Master                     1
 ## 6 Less than 5 hours        Healthy Doctorado                     0
 ##   Work.Study.Hours Financial.Stress Family.History.Mental.Illness Depression
-## 1                3                1                             0          1
-## 2                3                2                             1          0
-## 3                9                1                             1          0
-## 4                4                5                             1          1
-## 5                1                1                             0          0
-## 6                4                1                             0          0</code></pre>
+## 1                3                1                             0        Yes
+## 2                3                2                             1         No
+## 3                9                1                             1         No
+## 4                4                5                             1        Yes
+## 5                1                1                             0         No
+## 6                4                1                             0         No</code></pre>
 <pre class="r"><code>str(df_students)</code></pre>
 <pre><code>## &#39;data.frame&#39;:    27793 obs. of  14 variables:
 ##  $ Gender                       : Factor w/ 2 levels &quot;Female&quot;,&quot;Male&quot;: 2 1 2 1 1 2 2 1 2 2 ...
@@ -2162,7 +2201,7 @@ cat(&quot;Número de observaciones iniciales:&quot;, n_inicial, &quot;\n&quot;)<
 ##  $ Work.Study.Hours             : num  3 3 9 4 1 4 1 0 12 2 ...
 ##  $ Financial.Stress             : num  1 2 1 5 1 1 2 1 3 5 ...
 ##  $ Family.History.Mental.Illness: num  0 1 1 1 0 0 0 1 0 0 ...
-##  $ Depression                   : int  1 0 0 1 0 0 0 0 1 1 ...</code></pre>
+##  $ Depression                   : chr  &quot;Yes&quot; &quot;No&quot; &quot;No&quot; &quot;Yes&quot; ...</code></pre>
 <pre class="r"><code>summary(df_students)</code></pre>
 <pre><code>##     Gender           Age                 City       Academic.Pressure
 ##  Female:12307   Min.   :18.00   Other      : 5733   Min.   :0.000    
@@ -2188,258 +2227,644 @@ cat(&quot;Número de observaciones iniciales:&quot;, n_inicial, &quot;\n&quot;)<
 ##                       3rd Qu.:1.0000        3rd Qu.:10.00    3rd Qu.:4.000   
 ##                       Max.   :1.0000        Max.   :12.00    Max.   :5.000   
 ##                                                                              
-##  Family.History.Mental.Illness   Depression    
-##  Min.   :0.0000                Min.   :0.0000  
-##  1st Qu.:0.0000                1st Qu.:0.0000  
-##  Median :0.0000                Median :1.0000  
-##  Mean   :0.4841                Mean   :0.5852  
-##  3rd Qu.:1.0000                3rd Qu.:1.0000  
-##  Max.   :1.0000                Max.   :1.0000  
+##  Family.History.Mental.Illness  Depression       
+##  Min.   :0.0000                Length:27793      
+##  1st Qu.:0.0000                Class :character  
+##  Median :0.0000                Mode  :character  
+##  Mean   :0.4841                                  
+##  3rd Qu.:1.0000                                  
+##  Max.   :1.0000                                  
 ## </code></pre>
-<!--
-## 9. Generación de Datasets para Minería de Datos
+</div>
+<div id="generación-de-datasets-para-minería-de-datos" class="section level2">
+<h2>10. Generación de datasets para minería de datos</h2>
+<p>En esta fase final del preprocesamiento generamos distintas versiones
+del dataset, adaptadas a distintos tipos de algoritmos de minería de
+datos. Además de preparar datasets con diferentes escalados,
+incorporamos una <strong>reducción de dimensionalidad basada en
+Información Mutua (MI)</strong>, construyendo versiones reducidas que
+conservan únicamente las variables más informativas para predecir la
+depresión.</p>
+<p>En concreto, obtenemos:</p>
+<ol style="list-style-type: decimal">
+<li>Un dataset con <strong>variables categóricas como factores</strong>,
+adecuado para modelos basados en árboles y análisis exploratorio.</li>
+<li>Un dataset totalmente <strong>numérico con normalización
+Min-Max</strong>, apropiado para métodos basados en distancias.</li>
+<li>Un dataset totalmente <strong>numérico con estandarización</strong>
+(media 0, desviación típica 1), adecuado para muchos modelos lineales y
+algoritmos de optimización basados en gradiente.</li>
+<li>Dos datasets reducidos mediante <strong>selección de atributos por
+Información Mutua</strong>, a partir de las versiones normalizada y
+estandarizada, conservando las 11 variables más informativas además de
+la variable objetivo <code>Depression</code>.</li>
+</ol>
+<div id="dataset-1-variables-como-factores-df_factors" class="section level3">
+<h3>10.1 Dataset 1: variables como factores
+(<code>df_factors</code>)</h3>
+<p>Dataset 1: igual que df_students (factores y variables
+categóricas).</p>
+<pre class="r"><code>df_factors &lt;- df_students
 
-En esta fase final del preprocesamiento, generaremos las distintas versiones del dataset necesarias para las tareas de minería de datos. Además, aplicaremos una Selección de atributos basada en filtros para eliminar variables redundantes generadas por la codificación *dummy*, mejorando así la calidad de los datos antes de guardarlos
-
-### 9.1 Dataset 1: Variables como factores
-
-Esta versión mantiene las variables categóricas y ordinales como factores de R. Es la versión adecuada para algoritmos basados en árboles de decisión (rpart) y para visualización semántica, donde la multicolinealidad no es tan crítica o el propio algoritmo la gestiona.
-
-
-``` r
-df_factors <- df_students
-write.csv(df_factors, "./data/student_depression_clean_factors.csv", row.names = FALSE)
-```
-
-### 9.2 Dataset 2: Codificación numérica y selección de atributos
-
-A continuación, procedemos a transformar los datos para obtener una matriz puramente numérica. En primer lugar, convertimos las variables ordinales (Sleep.Duration y Dietary.Habits) a su representación entera, preservando el orden implícito que poseen.
-
-
-``` r
-df_numeric_temp <- df_factors %>%
+write.csv(df_factors, &quot;./data/student_depression_factors.csv&quot;,row.names = FALSE)</code></pre>
+</div>
+<div id="dataset-numérico-y-min-max-scaler-df_numeric_minmax" class="section level3">
+<h3>10.2 Dataset numérico y Min-Max scaler
+(<code>df_numeric_minmax</code>)</h3>
+<p>Primero construimos una versión totalmente numérica de
+df_students:</p>
+<ol style="list-style-type: decimal">
+<li>Convertimos las variables ordinales Sleep.Duration, Dietary.Habits y
+Degree a sus códigos numéricos respetando el orden.</li>
+<li>Aplicamos One-Hot Encoding (variables dummy) a las variables
+nominales Gender, City y Degree</li>
+</ol>
+<p>Partimos del dataset con factores:</p>
+<pre class="r"><code>df_numeric_temp &lt;- df_factors %&gt;%
   mutate(
     Sleep.Duration = as.numeric(Sleep.Duration),
-    Dietary.Habits = as.numeric(Dietary.Habits)
-  )
-```
+    Dietary.Habits = as.numeric(Dietary.Habits),
+    Degree = as.numeric(Degree),
+)
 
-Las **variables nominales** (Gender, City, Degree) no tienen un orden matemático, por lo que utilizamos la técnica de **One-Hot Encoding** (variables dummy). Esto expande cada categoría en una nueva columna binaria. Utilizamos la función dummyVars del paquete caret para crear este modelo de transformación.
+head(df_numeric_temp)</code></pre>
+<pre><code>##   Gender Age          City Academic.Pressure CGPA Study.Satisfaction
+## 1   Male  33 Visakhapatnam                 5 8.97                  2
+## 2 Female  24     Bangalore                 2 5.90                  5
+## 3   Male  31      Srinagar                 3 7.03                  5
+## 4 Female  28         Other                 3 5.59                  2
+## 5 Female  25        Jaipur                 4 8.13                  3
+## 6   Male  29          Pune                 2 5.70                  3
+##   Sleep.Duration Dietary.Habits Degree Had.suicidal.thoughts Work.Study.Hours
+## 1              2              3      2                     1                3
+## 2              2              2      2                     0                3
+## 3              1              3      2                     0                9
+## 4              3              2      2                     1                4
+## 5              2              2      3                     1                1
+## 6              1              3      4                     0                4
+##   Financial.Stress Family.History.Mental.Illness Depression
+## 1                1                             0        Yes
+## 2                2                             1         No
+## 3                1                             1         No
+## 4                5                             1        Yes
+## 5                1                             0         No
+## 6                1                             0         No</code></pre>
+<p><strong>One-Hot Encoding</strong> para variables nominales:</p>
+<pre class="r"><code>dummies_model &lt;- dummyVars(~ Gender + City, data = df_numeric_temp)
 
+df_dummies &lt;- predict(dummies_model, newdata = df_numeric_temp) %&gt;%
+  as.data.frame()</code></pre>
+<p>Unimos variables dummy y eliminamos las categóricas originales:</p>
+<pre class="r"><code>df_numeric_full &lt;- df_numeric_temp %&gt;%
+  select(-Gender, -City) %&gt;%
+  cbind(df_dummies)
 
-``` r
-dummies_model <- dummyVars(~ Gender + City + Degree, data = df_numeric_temp)
-df_dummies <- predict(dummies_model, newdata = df_numeric_temp)
-df_dummies <- as.data.frame(df_dummies)
-```
+head(df_numeric_full)</code></pre>
+<pre><code>##   Age Academic.Pressure CGPA Study.Satisfaction Sleep.Duration Dietary.Habits
+## 1  33                 5 8.97                  2              2              3
+## 2  24                 2 5.90                  5              2              2
+## 3  31                 3 7.03                  5              1              3
+## 4  28                 3 5.59                  2              3              2
+## 5  25                 4 8.13                  3              2              2
+## 6  29                 2 5.70                  3              1              3
+##   Degree Had.suicidal.thoughts Work.Study.Hours Financial.Stress
+## 1      2                     1                3                1
+## 2      2                     0                3                2
+## 3      2                     0                9                1
+## 4      2                     1                4                5
+## 5      3                     1                1                1
+## 6      4                     0                4                1
+##   Family.History.Mental.Illness Depression Gender.Female Gender.Male City.Agra
+## 1                             0        Yes             0           1         0
+## 2                             1         No             1           0         0
+## 3                             1         No             0           1         0
+## 4                             1        Yes             1           0         0
+## 5                             0         No             1           0         0
+## 6                             0         No             0           1         0
+##   City.Ahmedabad City.Bangalore City.Bhopal City.Chennai City.Delhi
+## 1              0              0           0            0          0
+## 2              0              1           0            0          0
+## 3              0              0           0            0          0
+## 4              0              0           0            0          0
+## 5              0              0           0            0          0
+## 6              0              0           0            0          0
+##   City.Hyderabad City.Jaipur City.Kalyan City.Kolkata City.Lucknow
+## 1              0           0           0            0            0
+## 2              0           0           0            0            0
+## 3              0           0           0            0            0
+## 4              0           0           0            0            0
+## 5              0           1           0            0            0
+## 6              0           0           0            0            0
+##   City.Ludhiana City.Meerut City.Other City.Patna City.Pune City.Rajkot
+## 1             0           0          0          0         0           0
+## 2             0           0          0          0         0           0
+## 3             0           0          0          0         0           0
+## 4             0           0          1          0         0           0
+## 5             0           0          0          0         0           0
+## 6             0           0          0          0         1           0
+##   City.Srinagar City.Surat City.Thane City.Vasai-Virar City.Visakhapatnam
+## 1             0          0          0                0                  1
+## 2             0          0          0                0                  0
+## 3             1          0          0                0                  0
+## 4             0          0          0                0                  0
+## 5             0          0          0                0                  0
+## 6             0          0          0                0                  0</code></pre>
+<p>Ahora aplicamos <strong>normalización Min-Max</strong> a todas las
+variables predictoras, dejando fuera la variable objetivo
+Depression.</p>
+<pre class="r"><code>cols_to_scale &lt;- setdiff(names(df_numeric_full), &quot;Depression&quot;)
 
-Unimos las nuevas variables dummy al dataset original numérico y eliminamos las columnas categóricas originales, ya que han sido sustituidas.
+process_minmax &lt;- preProcess(
+  df_numeric_full[, cols_to_scale],
+  method = &quot;range&quot;
+)
 
+df_minmax_values &lt;- predict(process_minmax, df_numeric_full[, cols_to_scale])</code></pre>
+<p>Reconstruimos el dataset añadiendo la variable objetivo sin
+escalar:</p>
+<pre class="r"><code>df_numeric_minmax &lt;- df_minmax_values %&gt;%
+  mutate(Depression = df_numeric_full$Depression)
 
-``` r
-df_numeric_full <- cbind(df_numeric_temp, df_dummies) %>%
-  select(-Gender, -City, -Degree)
-```
+head(df_numeric_minmax)</code></pre>
+<pre><code>##         Age Academic.Pressure      CGPA Study.Satisfaction Sleep.Duration
+## 1 0.3658537               1.0 0.7927565                0.4      0.3333333
+## 2 0.1463415               0.4 0.1750503                1.0      0.3333333
+## 3 0.3170732               0.6 0.4024145                1.0      0.0000000
+## 4 0.2439024               0.6 0.1126761                0.4      0.6666667
+## 5 0.1707317               0.8 0.6237425                0.6      0.3333333
+## 6 0.2682927               0.4 0.1348089                0.6      0.0000000
+##   Dietary.Habits    Degree Had.suicidal.thoughts Work.Study.Hours
+## 1            1.0 0.3333333                     1       0.25000000
+## 2            0.5 0.3333333                     0       0.25000000
+## 3            1.0 0.3333333                     0       0.75000000
+## 4            0.5 0.3333333                     1       0.33333333
+## 5            0.5 0.6666667                     1       0.08333333
+## 6            1.0 1.0000000                     0       0.33333333
+##   Financial.Stress Family.History.Mental.Illness Gender.Female Gender.Male
+## 1             0.00                             0             0           1
+## 2             0.25                             1             1           0
+## 3             0.00                             1             0           1
+## 4             1.00                             1             1           0
+## 5             0.00                             0             1           0
+## 6             0.00                             0             0           1
+##   City.Agra City.Ahmedabad City.Bangalore City.Bhopal City.Chennai City.Delhi
+## 1         0              0              0           0            0          0
+## 2         0              0              1           0            0          0
+## 3         0              0              0           0            0          0
+## 4         0              0              0           0            0          0
+## 5         0              0              0           0            0          0
+## 6         0              0              0           0            0          0
+##   City.Hyderabad City.Jaipur City.Kalyan City.Kolkata City.Lucknow
+## 1              0           0           0            0            0
+## 2              0           0           0            0            0
+## 3              0           0           0            0            0
+## 4              0           0           0            0            0
+## 5              0           1           0            0            0
+## 6              0           0           0            0            0
+##   City.Ludhiana City.Meerut City.Other City.Patna City.Pune City.Rajkot
+## 1             0           0          0          0         0           0
+## 2             0           0          0          0         0           0
+## 3             0           0          0          0         0           0
+## 4             0           0          1          0         0           0
+## 5             0           0          0          0         0           0
+## 6             0           0          0          0         1           0
+##   City.Srinagar City.Surat City.Thane City.Vasai-Virar City.Visakhapatnam
+## 1             0          0          0                0                  1
+## 2             0          0          0                0                  0
+## 3             1          0          0                0                  0
+## 4             0          0          0                0                  0
+## 5             0          0          0                0                  0
+## 6             0          0          0                0                  0
+##   Depression
+## 1        Yes
+## 2         No
+## 3         No
+## 4        Yes
+## 5         No
+## 6         No</code></pre>
+<p>Y guardamos el dataset:</p>
+<pre class="r"><code>write.csv(df_numeric_minmax, &quot;./data/student_depression_numeric_minmax.csv&quot;, 
+          row.names = FALSE)</code></pre>
+<div id="reducción-de-dimensionalidad-mediante-información-mutua-dataset-min-max" class="section level4">
+<h4>10.2.1 Reducción de dimensionalidad mediante Información Mutua
+(dataset Min-Max)</h4>
+<p>La <strong>Información Mutua (MI)</strong> mide cuánta información
+aporta cada variable para predecir la depresión, capturando relaciones
+no lineales, lo cual es especialmente útil en nuestro caso, donde la
+correlación lineal entre características es baja.</p>
+<p>Trabajamos con el dataset numérico normalizado (Min-Max)</p>
+<pre class="r"><code>df_mi_minmax &lt;- df_numeric_minmax
 
-Al generar variables dummy, es común introducir redundancia (multicolinealidad) en los datos. Para mitigar esto, aplicamos una técnica de Selección de Atributos (Filtro). Primero, calculamos la matriz de correlación de todas las variables predictoras, excluyendo la variable objetivo (Depression).
+df_mi_minmax$Depression &lt;- as.factor(df_mi_minmax$Depression)</code></pre>
+<p>Cálculo de la información mutua de cada variable respecto a
+Depression</p>
+<pre class="r"><code>mi_minmax &lt;- information.gain(Depression ~ ., data = df_mi_minmax)</code></pre>
+<p>Ordenamos de mayor a menor relevancia</p>
+<pre class="r"><code>mi_minmax_sorted &lt;- mi_minmax[order(-mi_minmax$attr_importance), , drop = FALSE]
 
+mi_minmax_sorted</code></pre>
+<pre><code>##                               attr_importance
+## Had.suicidal.thoughts            0.1550642918
+## Academic.Pressure                0.1221631983
+## Financial.Stress                 0.0687660810
+## Age                              0.0308617811
+## Work.Study.Hours                 0.0222966565
+## Dietary.Habits                   0.0219934626
+## Study.Satisfaction               0.0140666894
+## Degree                           0.0089517108
+## Sleep.Duration                   0.0048170115
+## CGPA                             0.0018828426
+## Family.History.Mental.Illness    0.0014195893
+## City.Hyderabad                   0.0007643439
+## City.Ahmedabad                   0.0005440761
+## Gender.Female                    0.0000000000
+## Gender.Male                      0.0000000000
+## City.Agra                        0.0000000000
+## City.Bangalore                   0.0000000000
+## City.Bhopal                      0.0000000000
+## City.Chennai                     0.0000000000
+## City.Delhi                       0.0000000000
+## City.Jaipur                      0.0000000000
+## City.Kalyan                      0.0000000000
+## City.Kolkata                     0.0000000000
+## City.Lucknow                     0.0000000000
+## City.Ludhiana                    0.0000000000
+## City.Meerut                      0.0000000000
+## City.Other                       0.0000000000
+## City.Patna                       0.0000000000
+## City.Pune                        0.0000000000
+## City.Rajkot                      0.0000000000
+## City.Srinagar                    0.0000000000
+## City.Surat                       0.0000000000
+## City.Thane                       0.0000000000
+## City.Vasai-Virar                 0.0000000000
+## City.Visakhapatnam               0.0000000000</code></pre>
+<p>Representamos gráficamente los resultados para visualizar qué
+variables son más informativas respecto a la depresión:</p>
+<pre class="r"><code>barplot(
+  mi_minmax_sorted$attr_importance,
+  names.arg = rownames(mi_minmax_sorted),
+  las = 2,
+  cex.names = 0.7,
+  main = &quot;Información mutua respecto a Depression (Min-Max)&quot;,
+  ylab = &quot;MI&quot;
+)</code></pre>
+<p><img role="img" src="data:image/png;base64,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" width="672" /></p>
+<p>Seleccionamos las 11 variables más informativas según MI y
+construimos un nuevo dataset reducido:</p>
+<pre class="r"><code>k_top &lt;- 11
 
-``` r
-cor_matrix <- cor(df_numeric_full[, setdiff(names(df_numeric_full), "Depression")])
-```
+top_vars_minmax &lt;- rownames(mi_minmax_sorted)[1:k_top]
+top_vars_minmax</code></pre>
+<pre><code>##  [1] &quot;Had.suicidal.thoughts&quot;         &quot;Academic.Pressure&quot;            
+##  [3] &quot;Financial.Stress&quot;              &quot;Age&quot;                          
+##  [5] &quot;Work.Study.Hours&quot;              &quot;Dietary.Habits&quot;               
+##  [7] &quot;Study.Satisfaction&quot;            &quot;Degree&quot;                       
+##  [9] &quot;Sleep.Duration&quot;                &quot;CGPA&quot;                         
+## [11] &quot;Family.History.Mental.Illness&quot;</code></pre>
+<p>Construimos el dataset reducido (11 mejores variables + objetivo) y
+lo guardamos:</p>
+<pre class="r"><code>df_numeric_minmax_mi &lt;- df_numeric_minmax %&gt;%
+  dplyr::select(all_of(top_vars_minmax), Depression)
 
-Utilizamos la función findCorrelation de caret para identificar automáticamente las variables que tienen una correlación absoluta superior a 0.75. Esta función nos devuelve los índices de las columnas que deben eliminarse para reducir la redundancia.
+head(df_numeric_minmax_mi)</code></pre>
+<pre><code>##   Had.suicidal.thoughts Academic.Pressure Financial.Stress       Age
+## 1                     1               1.0             0.00 0.3658537
+## 2                     0               0.4             0.25 0.1463415
+## 3                     0               0.6             0.00 0.3170732
+## 4                     1               0.6             1.00 0.2439024
+## 5                     1               0.8             0.00 0.1707317
+## 6                     0               0.4             0.00 0.2682927
+##   Work.Study.Hours Dietary.Habits Study.Satisfaction    Degree Sleep.Duration
+## 1       0.25000000            1.0                0.4 0.3333333      0.3333333
+## 2       0.25000000            0.5                1.0 0.3333333      0.3333333
+## 3       0.75000000            1.0                1.0 0.3333333      0.0000000
+## 4       0.33333333            0.5                0.4 0.3333333      0.6666667
+## 5       0.08333333            0.5                0.6 0.6666667      0.3333333
+## 6       0.33333333            1.0                0.6 1.0000000      0.0000000
+##        CGPA Family.History.Mental.Illness Depression
+## 1 0.7927565                             0        Yes
+## 2 0.1750503                             1         No
+## 3 0.4024145                             1         No
+## 4 0.1126761                             1        Yes
+## 5 0.6237425                             0         No
+## 6 0.1348089                             0         No</code></pre>
+<pre class="r"><code>write.csv(df_numeric_minmax_mi, &quot;./data/student_depression_numeric_minmax_mi.csv&quot;,
+          row.names = FALSE)</code></pre>
+</div>
+</div>
+<div id="dataset-numérico-y-standard-scaler-df_numeric_standard" class="section level3">
+<h3>10.3 Dataset numérico y Standard Scaler
+(<code>df_numeric_standard</code>)</h3>
+<p>A partir del mismo dataset numérico <code>df_numeric_full</code>
+utilizado en el apartado anterior, aplicamos ahora un <strong>escalado
+estándar</strong> a las variables predictoras:</p>
+<pre class="r"><code>cols_to_scale &lt;- setdiff(names(df_numeric_full), &quot;Depression&quot;)
 
+process_standard &lt;- preProcess(
+  df_numeric_full[, cols_to_scale],
+  method = c(&quot;center&quot;, &quot;scale&quot;)
+)</code></pre>
+<p>Aplicamos la transformación estándar a las variables predictoras:</p>
+<pre class="r"><code>df_standard_values &lt;- predict(process_standard, df_numeric_full[, cols_to_scale])</code></pre>
+<p>Reconstruimos el dataset añadiendo la variable objetivo sin
+escalar:</p>
+<pre class="r"><code>df_numeric_standard &lt;- df_standard_values %&gt;%
+  mutate(Depression = df_numeric_full$Depression)
 
-``` r
-high_cor_indices <- findCorrelation(cor_matrix, cutoff = 0.75)
-redundant_vars <- colnames(cor_matrix)[high_cor_indices]
+head(df_numeric_standard)</code></pre>
+<pre><code>##          Age Academic.Pressure       CGPA Study.Satisfaction Sleep.Duration
+## 1  1.4636878         1.3453951  0.8953448        -0.69391252     -0.3542413
+## 2 -0.3706759        -0.8265708 -1.2008888         1.51119962     -0.3542413
+## 3  1.0560514        -0.1025822 -0.4293109         1.51119962     -1.2418567
+## 4  0.4445969        -0.1025822 -1.4125606        -0.69391252      0.5333740
+## 5 -0.1668577         0.6214064  0.3217826         0.04112486     -0.3542413
+## 6  0.6484151        -0.8265708 -1.3374512         0.04112486     -1.2418567
+##   Dietary.Habits     Degree Had.suicidal.thoughts Work.Study.Hours
+## 1      1.3748389 -0.1371477             0.7619473       -1.1226157
+## 2      0.1199654 -0.1371477            -1.3123795       -1.1226157
+## 3      1.3748389 -0.1371477            -1.3123795        0.4963858
+## 4      0.1199654 -0.1371477             0.7619473       -0.8527821
+## 5      0.1199654  1.1909865             0.7619473       -1.6622829
+## 6      1.3748389  2.5191207            -1.3123795       -0.8527821
+##   Financial.Stress Family.History.Mental.Illness Gender.Female Gender.Male
+## 1        -1.488559                    -0.9686312    -0.8914534   0.8914534
+## 2        -0.792760                     1.0323475     1.1217232  -1.1217232
+## 3        -1.488559                     1.0323475    -0.8914534   0.8914534
+## 4         1.294638                     1.0323475     1.1217232  -1.1217232
+## 5        -1.488559                    -0.9686312     1.1217232  -1.1217232
+## 6        -1.488559                    -0.9686312    -0.8914534   0.8914534
+##    City.Agra City.Ahmedabad City.Bangalore City.Bhopal City.Chennai City.Delhi
+## 1 -0.2020344     -0.1872998     -0.1682348  -0.1861649   -0.1811406 -0.1682348
+## 2 -0.2020344     -0.1872998      5.9438580  -0.1861649   -0.1811406 -0.1682348
+## 3 -0.2020344     -0.1872998     -0.1682348  -0.1861649   -0.1811406 -0.1682348
+## 4 -0.2020344     -0.1872998     -0.1682348  -0.1861649   -0.1811406 -0.1682348
+## 5 -0.2020344     -0.1872998     -0.1682348  -0.1861649   -0.1811406 -0.1682348
+## 6 -0.2020344     -0.1872998     -0.1682348  -0.1861649   -0.1811406 -0.1682348
+##   City.Hyderabad City.Jaipur City.Kalyan City.Kolkata City.Lucknow
+## 1     -0.2247114  -0.1964714  -0.2440199   -0.1989275   -0.2079425
+## 2     -0.2247114  -0.1964714  -0.2440199   -0.1989275   -0.2079425
+## 3     -0.2247114  -0.1964714  -0.2440199   -0.1989275   -0.2079425
+## 4     -0.2247114  -0.1964714  -0.2440199   -0.1989275   -0.2079425
+## 5     -0.2247114   5.0896167  -0.2440199   -0.1989275   -0.2079425
+## 6     -0.2247114  -0.1964714  -0.2440199   -0.1989275   -0.2079425
+##   City.Ludhiana City.Meerut City.Other City.Patna  City.Pune City.Rajkot
+## 1    -0.2036687  -0.1742455 -0.5097772  -0.193489 -0.1897556  -0.1734767
+## 2    -0.2036687  -0.1742455 -0.5097772  -0.193489 -0.1897556  -0.1734767
+## 3    -0.2036687  -0.1742455 -0.5097772  -0.193489 -0.1897556  -0.1734767
+## 4    -0.2036687  -0.1742455  1.9615707  -0.193489 -0.1897556  -0.1734767
+## 5    -0.2036687  -0.1742455 -0.5097772  -0.193489 -0.1897556  -0.1734767
+## 6    -0.2036687  -0.1742455 -0.5097772  -0.193489  5.2697459  -0.1734767
+##   City.Srinagar City.Surat City.Thane City.Vasai-Virar City.Visakhapatnam
+## 1    -0.2274368 -0.2008741 -0.2067154       -0.2202584          5.2697459
+## 2    -0.2274368 -0.2008741 -0.2067154       -0.2202584         -0.1897556
+## 3     4.3966677 -0.2008741 -0.2067154       -0.2202584         -0.1897556
+## 4    -0.2274368 -0.2008741 -0.2067154       -0.2202584         -0.1897556
+## 5    -0.2274368 -0.2008741 -0.2067154       -0.2202584         -0.1897556
+## 6    -0.2274368 -0.2008741 -0.2067154       -0.2202584         -0.1897556
+##   Depression
+## 1        Yes
+## 2         No
+## 3         No
+## 4        Yes
+## 5         No
+## 6         No</code></pre>
+<p>Y guardamos el dataset estandarizado:</p>
+<pre class="r"><code>write.csv(df_numeric_standard, &quot;./data/student_depression_numeric_standard.csv&quot;,
+          row.names = FALSE)
 
-cat("Variables eliminadas por alta correlación (> 0.75):\n")
-```
+head(df_numeric_standard)</code></pre>
+<pre><code>##          Age Academic.Pressure       CGPA Study.Satisfaction Sleep.Duration
+## 1  1.4636878         1.3453951  0.8953448        -0.69391252     -0.3542413
+## 2 -0.3706759        -0.8265708 -1.2008888         1.51119962     -0.3542413
+## 3  1.0560514        -0.1025822 -0.4293109         1.51119962     -1.2418567
+## 4  0.4445969        -0.1025822 -1.4125606        -0.69391252      0.5333740
+## 5 -0.1668577         0.6214064  0.3217826         0.04112486     -0.3542413
+## 6  0.6484151        -0.8265708 -1.3374512         0.04112486     -1.2418567
+##   Dietary.Habits     Degree Had.suicidal.thoughts Work.Study.Hours
+## 1      1.3748389 -0.1371477             0.7619473       -1.1226157
+## 2      0.1199654 -0.1371477            -1.3123795       -1.1226157
+## 3      1.3748389 -0.1371477            -1.3123795        0.4963858
+## 4      0.1199654 -0.1371477             0.7619473       -0.8527821
+## 5      0.1199654  1.1909865             0.7619473       -1.6622829
+## 6      1.3748389  2.5191207            -1.3123795       -0.8527821
+##   Financial.Stress Family.History.Mental.Illness Gender.Female Gender.Male
+## 1        -1.488559                    -0.9686312    -0.8914534   0.8914534
+## 2        -0.792760                     1.0323475     1.1217232  -1.1217232
+## 3        -1.488559                     1.0323475    -0.8914534   0.8914534
+## 4         1.294638                     1.0323475     1.1217232  -1.1217232
+## 5        -1.488559                    -0.9686312     1.1217232  -1.1217232
+## 6        -1.488559                    -0.9686312    -0.8914534   0.8914534
+##    City.Agra City.Ahmedabad City.Bangalore City.Bhopal City.Chennai City.Delhi
+## 1 -0.2020344     -0.1872998     -0.1682348  -0.1861649   -0.1811406 -0.1682348
+## 2 -0.2020344     -0.1872998      5.9438580  -0.1861649   -0.1811406 -0.1682348
+## 3 -0.2020344     -0.1872998     -0.1682348  -0.1861649   -0.1811406 -0.1682348
+## 4 -0.2020344     -0.1872998     -0.1682348  -0.1861649   -0.1811406 -0.1682348
+## 5 -0.2020344     -0.1872998     -0.1682348  -0.1861649   -0.1811406 -0.1682348
+## 6 -0.2020344     -0.1872998     -0.1682348  -0.1861649   -0.1811406 -0.1682348
+##   City.Hyderabad City.Jaipur City.Kalyan City.Kolkata City.Lucknow
+## 1     -0.2247114  -0.1964714  -0.2440199   -0.1989275   -0.2079425
+## 2     -0.2247114  -0.1964714  -0.2440199   -0.1989275   -0.2079425
+## 3     -0.2247114  -0.1964714  -0.2440199   -0.1989275   -0.2079425
+## 4     -0.2247114  -0.1964714  -0.2440199   -0.1989275   -0.2079425
+## 5     -0.2247114   5.0896167  -0.2440199   -0.1989275   -0.2079425
+## 6     -0.2247114  -0.1964714  -0.2440199   -0.1989275   -0.2079425
+##   City.Ludhiana City.Meerut City.Other City.Patna  City.Pune City.Rajkot
+## 1    -0.2036687  -0.1742455 -0.5097772  -0.193489 -0.1897556  -0.1734767
+## 2    -0.2036687  -0.1742455 -0.5097772  -0.193489 -0.1897556  -0.1734767
+## 3    -0.2036687  -0.1742455 -0.5097772  -0.193489 -0.1897556  -0.1734767
+## 4    -0.2036687  -0.1742455  1.9615707  -0.193489 -0.1897556  -0.1734767
+## 5    -0.2036687  -0.1742455 -0.5097772  -0.193489 -0.1897556  -0.1734767
+## 6    -0.2036687  -0.1742455 -0.5097772  -0.193489  5.2697459  -0.1734767
+##   City.Srinagar City.Surat City.Thane City.Vasai-Virar City.Visakhapatnam
+## 1    -0.2274368 -0.2008741 -0.2067154       -0.2202584          5.2697459
+## 2    -0.2274368 -0.2008741 -0.2067154       -0.2202584         -0.1897556
+## 3     4.3966677 -0.2008741 -0.2067154       -0.2202584         -0.1897556
+## 4    -0.2274368 -0.2008741 -0.2067154       -0.2202584         -0.1897556
+## 5    -0.2274368 -0.2008741 -0.2067154       -0.2202584         -0.1897556
+## 6    -0.2274368 -0.2008741 -0.2067154       -0.2202584         -0.1897556
+##   Depression
+## 1        Yes
+## 2         No
+## 3         No
+## 4        Yes
+## 5         No
+## 6         No</code></pre>
+<div id="reducción-de-dimensionalidad-mediante-información-mutua-dataset-standard-scaler" class="section level4">
+<h4>10.3.1 Reducción de dimensionalidad mediante Información Mutua
+(dataset Standard Scaler)</h4>
+<p>La Información Mutua es <strong>invariante ante transformaciones
+monótonas</strong> como la normalización Min-Max o el escalado estándar
+(centrado y escalado). Por ello, el patrón de relevancia de las
+variables obtenido en el apartado 10.2.1 sigue siendo válido para el
+dataset estandarizado.La Información Mutua es invariante ante
+transformaciones monótonas como la normalización Min-Max o el escalado
+estándar (centrado y escalado). Por ello, el patrón de relevancia de las
+variables obtenido en el apartado 10.2.1 sigue siendo válido para el
+dataset estandarizado.</p>
+<p>Aun así, por coherencia con la estructura del documento, recalculamos
+la MI sobre el dataset <code>df_numeric_standard</code>:</p>
+<pre class="r"><code>df_mi_standard &lt;- df_numeric_standard
+df_mi_standard$Depression &lt;- as.factor(df_mi_standard$Depression)
 
-```
-## Variables eliminadas por alta correlación (> 0.75):
-```
+mi_standard &lt;- information.gain(Depression ~ ., data = df_mi_standard)
+mi_standard_sorted &lt;- mi_standard[order(-mi_standard$attr_importance), , drop = FALSE]
 
-``` r
-print(redundant_vars)
-```
+mi_standard_sorted</code></pre>
+<pre><code>##                               attr_importance
+## Had.suicidal.thoughts            0.1550642918
+## Academic.Pressure                0.1221631983
+## Financial.Stress                 0.0687660810
+## Age                              0.0308617811
+## Work.Study.Hours                 0.0222966565
+## Dietary.Habits                   0.0219934626
+## Study.Satisfaction               0.0140666894
+## Degree                           0.0089517108
+## Sleep.Duration                   0.0048170115
+## CGPA                             0.0018828426
+## Family.History.Mental.Illness    0.0014195893
+## City.Hyderabad                   0.0007643439
+## City.Ahmedabad                   0.0005440761
+## Gender.Female                    0.0000000000
+## Gender.Male                      0.0000000000
+## City.Agra                        0.0000000000
+## City.Bangalore                   0.0000000000
+## City.Bhopal                      0.0000000000
+## City.Chennai                     0.0000000000
+## City.Delhi                       0.0000000000
+## City.Jaipur                      0.0000000000
+## City.Kalyan                      0.0000000000
+## City.Kolkata                     0.0000000000
+## City.Lucknow                     0.0000000000
+## City.Ludhiana                    0.0000000000
+## City.Meerut                      0.0000000000
+## City.Other                       0.0000000000
+## City.Patna                       0.0000000000
+## City.Pune                        0.0000000000
+## City.Rajkot                      0.0000000000
+## City.Srinagar                    0.0000000000
+## City.Surat                       0.0000000000
+## City.Thane                       0.0000000000
+## City.Vasai-Virar                 0.0000000000
+## City.Visakhapatnam               0.0000000000</code></pre>
+<p>Y mostramos su gráfico:</p>
+<pre class="r"><code>barplot(
+  mi_standard_sorted$attr_importance,
+  names.arg = rownames(mi_standard_sorted),
+  las = 2,
+  cex.names = 0.7,
+  main = &quot;Información mutua respecto a Depression (Standard Scaler)&quot;,
+  ylab = &quot;MI&quot;
+)</code></pre>
+<p><img role="img" src="data:image/png;base64,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" width="672" /></p>
+<p>Seleccionamos las 11 variables más informativas según MI y
+construimos un nuevo dataset reducido:</p>
+<pre class="r"><code>k_top &lt;- 11
 
-```
-## [1] "Gender.Female"
-```
+top_vars_standard &lt;- rownames(mi_standard_sorted)[1:k_top]
+top_vars_standard</code></pre>
+<pre><code>##  [1] &quot;Had.suicidal.thoughts&quot;         &quot;Academic.Pressure&quot;            
+##  [3] &quot;Financial.Stress&quot;              &quot;Age&quot;                          
+##  [5] &quot;Work.Study.Hours&quot;              &quot;Dietary.Habits&quot;               
+##  [7] &quot;Study.Satisfaction&quot;            &quot;Degree&quot;                       
+##  [9] &quot;Sleep.Duration&quot;                &quot;CGPA&quot;                         
+## [11] &quot;Family.History.Mental.Illness&quot;</code></pre>
+<p>Construimos el dataset reducido (11 mejores variables + objetivo) y
+lo guardamos:</p>
+<pre class="r"><code>df_numeric_standard_mi &lt;- df_numeric_standard %&gt;%
+  dplyr::select(all_of(top_vars_standard), Depression)
 
-Tras aplicar el filtro de correlación con un umbral de 0.75, el algoritmo ha identificado y eliminado la variable `Gender.Female`. Esto es un comportamiento esperado y deseable. Al realizar la codificación *One-Hot* sobre la variable binaria original `Gender` (Male/Female), se generaron dos columnas (`Gender.Male` y `Gender.Female`) que son perfectamente colineales (si un estudiante no es hombre, necesariamente es mujer, y viceversa).
-
-Mantener ambas columnas introduciría **multicolinealidad perfecta**, lo que puede desestabilizar modelos lineales como la Regresión Logística. La eliminación automática de una de ellas valida la eficacia de este paso de preprocesamiento.
-
-Finalmente, eliminamos dichas variables redundantes del dataset numérico y guardamos el resultado optimizado en un archivo CSV.
-
-
-``` r
-df_numeric_final <- df_numeric_full %>% select(-all_of(redundant_vars))
-write.csv(df_numeric_final, "./data/student_depression_numeric.csv", row.names = FALSE)
-```
-
-### 9.3 Dataset 3: Normalización (Min-Max)
-
-Observando el resumen estadístico del dataset numérico, vemos variables con rangos muy dispares: `Age` varía aproximadamente entre 18 y 60, mientras que `CGPA` lo hace entre 0 y 10, y las variables binarias entre 0 y 1.
-
-Para algoritmos basados en el cálculo de distancias (como k-NN, que utilizaremos en la siguiente fase) o basados en el descenso de gradiente (como Redes Neuronales), esta disparidad haría que la variable `Age` dominara el cálculo de la distancia sobre el resto. Al aplicar la normalización **Min-Max**, transformamos todas las variables predictoras al rango $[0, 1]$, asegurando que todas contribuyan equitativamente al modelo. La variable objetivo `Depression` se excluye de este proceso para mantener su naturaleza binaria original.
-
-
-``` r
-cols_to_scale <- setdiff(names(df_numeric_final), "Depression")
-```
-
-Calculamos los parámetros de escalado utilizando la función preProcess de caret con el método "range", que aplica una normalización Min-Max para llevar los valores al intervalo [0, 1].
-
-
-``` r
-process_minmax <- preProcess(df_numeric_final[, cols_to_scale], method = c("range"))
-```
-
-Aplicamos la transformación calculada a los datos.
-
-
-``` r
-df_normalized_values <- predict(process_minmax, df_numeric_final[, cols_to_scale])
-```
-
-Reconstruimos el dataset final añadiendo de nuevo la variable objetivo Depression (que no debe ser escalada ya que es binaria) y guardamos el archivo CSV definitivo.
-
-
-``` r
-df_normalized_final <- df_normalized_values %>%
-  mutate(Depression = df_numeric_final$Depression)
-
-write.csv(df_normalized_final, "./data/student_depression_normalized.csv", row.names = FALSE)
-```
-
-El preprocesamiento ha concluido con éxito. Mostramos un resumen de las dimensiones y estructura del dataset final normalizado.
-
-
-``` r
-cat("Dimensiones finales (filas, columnas):", dim(df_normalized_final))
-```
-
-```
-## Dimensiones finales (filas, columnas): 27793 37
-```
-
-``` r
-summary(df_normalized_final)
-```
-
-```
-##       Age          Academic.Pressure      CGPA        Study.Satisfaction
-##  Min.   :0.00000   Min.   :0.0000    Min.   :0.0000   Min.   :0.0000    
-##  1st Qu.:0.07317   1st Qu.:0.4000    1st Qu.:0.2535   1st Qu.:0.4000    
-##  Median :0.17073   Median :0.6000    Median :0.5513   Median :0.6000    
-##  Mean   :0.19070   Mean   :0.6283    Mean   :0.5289   Mean   :0.5888    
-##  3rd Qu.:0.29268   3rd Qu.:0.8000    3rd Qu.:0.7827   3rd Qu.:0.8000    
-##  Max.   :1.00000   Max.   :1.0000    Max.   :1.0000   Max.   :1.0000    
-##  Sleep.Duration   Dietary.Habits   Had.suicidal.thoughts Work.Study.Hours
-##  Min.   :0.0000   Min.   :0.0000   Min.   :0.0000        Min.   :0.0000  
-##  1st Qu.:0.0000   1st Qu.:0.0000   1st Qu.:0.0000        1st Qu.:0.3333  
-##  Median :0.3333   Median :0.5000   Median :1.0000        Median :0.6667  
-##  Mean   :0.4664   Mean   :0.4522   Mean   :0.6327        Mean   :0.5967  
-##  3rd Qu.:0.6667   3rd Qu.:1.0000   3rd Qu.:1.0000        3rd Qu.:0.8333  
-##  Max.   :1.0000   Max.   :1.0000   Max.   :1.0000        Max.   :1.0000  
-##  Financial.Stress Family.History.Mental.Illness  Gender.Male    
-##  Min.   :0.0000   Min.   :0.0000                Min.   :0.0000  
-##  1st Qu.:0.2500   1st Qu.:0.0000                1st Qu.:0.0000  
-##  Median :0.5000   Median :0.0000                Median :1.0000  
-##  Mean   :0.5348   Mean   :0.4841                Mean   :0.5572  
-##  3rd Qu.:0.7500   3rd Qu.:1.0000                3rd Qu.:1.0000  
-##  Max.   :1.0000   Max.   :1.0000                Max.   :1.0000  
-##    City.Agra       City.Ahmedabad    City.Bangalore     City.Bhopal    
-##  Min.   :0.00000   Min.   :0.00000   Min.   :0.00000   Min.   :0.0000  
-##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.0000  
-##  Median :0.00000   Median :0.00000   Median :0.00000   Median :0.0000  
-##  Mean   :0.03922   Mean   :0.03389   Mean   :0.02752   Mean   :0.0335  
-##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.0000  
-##  Max.   :1.00000   Max.   :1.00000   Max.   :1.00000   Max.   :1.0000  
-##   City.Chennai       City.Delhi      City.Hyderabad     City.Jaipur     
-##  Min.   :0.00000   Min.   :0.00000   Min.   :0.00000   Min.   :0.00000  
-##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000  
-##  Median :0.00000   Median :0.00000   Median :0.00000   Median :0.00000  
-##  Mean   :0.03177   Mean   :0.02752   Mean   :0.04807   Mean   :0.03717  
-##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000  
-##  Max.   :1.00000   Max.   :1.00000   Max.   :1.00000   Max.   :1.00000  
-##   City.Kalyan      City.Kolkata      City.Lucknow     City.Ludhiana    
-##  Min.   :0.0000   Min.   :0.00000   Min.   :0.00000   Min.   :0.00000  
-##  1st Qu.:0.0000   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000  
-##  Median :0.0000   Median :0.00000   Median :0.00000   Median :0.00000  
-##  Mean   :0.0562   Mean   :0.03807   Mean   :0.04145   Mean   :0.03983  
-##  3rd Qu.:0.0000   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000  
-##  Max.   :1.0000   Max.   :1.00000   Max.   :1.00000   Max.   :1.00000  
-##   City.Meerut        City.Other       City.Patna        City.Pune      
-##  Min.   :0.00000   Min.   :0.0000   Min.   :0.00000   Min.   :0.00000  
-##  1st Qu.:0.00000   1st Qu.:0.0000   1st Qu.:0.00000   1st Qu.:0.00000  
-##  Median :0.00000   Median :0.0000   Median :0.00000   Median :0.00000  
-##  Mean   :0.02947   Mean   :0.2063   Mean   :0.03609   Mean   :0.03476  
-##  3rd Qu.:0.00000   3rd Qu.:0.0000   3rd Qu.:0.00000   3rd Qu.:0.00000  
-##  Max.   :1.00000   Max.   :1.0000   Max.   :1.00000   Max.   :1.00000  
-##   City.Rajkot      City.Srinagar       City.Surat        City.Thane     
-##  Min.   :0.00000   Min.   :0.00000   Min.   :0.00000   Min.   :0.00000  
-##  1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000   1st Qu.:0.00000  
-##  Median :0.00000   Median :0.00000   Median :0.00000   Median :0.00000  
-##  Mean   :0.02922   Mean   :0.04919   Mean   :0.03879   Mean   :0.04098  
-##  3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000   3rd Qu.:0.00000  
-##  Max.   :1.00000   Max.   :1.00000   Max.   :1.00000   Max.   :1.00000  
-##  City.Vasai-Virar  City.Visakhapatnam    Degree.L         Degree.Q     
-##  Min.   :0.00000   Min.   :0.00000    Min.   :0.0000   Min.   :0.0000  
-##  1st Qu.:0.00000   1st Qu.:0.00000    1st Qu.:0.3333   1st Qu.:0.0000  
-##  Median :0.00000   Median :0.00000    Median :0.3333   Median :0.0000  
-##  Mean   :0.04627   Mean   :0.03476    Mean   :0.3678   Mean   :0.2371  
-##  3rd Qu.:0.00000   3rd Qu.:0.00000    3rd Qu.:0.6667   3rd Qu.:0.0000  
-##  Max.   :1.00000   Max.   :1.00000    Max.   :1.0000   Max.   :1.0000  
-##     Degree.C        Depression    
-##  Min.   :0.0000   Min.   :0.0000  
-##  1st Qu.:0.0000   1st Qu.:0.0000  
-##  Median :0.3333   Median :1.0000  
-##  Mean   :0.5637   Mean   :0.5852  
-##  3rd Qu.:1.0000   3rd Qu.:1.0000  
-##  Max.   :1.0000   Max.   :1.0000
-```
-
-## 10. Conclusiones
-
-Tras ejecutar el pipeline completo de limpieza y transformación, hemos obtenido un conjunto de datos robusto y preparado para la fase de modelado. A partir del análisis del dataset final (df_normalized), extraemos las siguientes conclusiones técnicas:
-
-1.  Reducción de Dimensionalidad Controlada:
-
--   Partíamos de un dataset crudo con variables ruidosas. Tras la limpieza, el One-Hot Encoding y la selección de atributos, hemos consolidado un dataset con 75 columnas.
-
--   Se ha mitigado la explosión de dimensionalidad derivada de la variable Degree agrupando las titulaciones minoritarias, lo que evita la dispersión de datos (sparsity).
-
--   Se ha eliminado la redundancia introducida por las variables dummy binarias (ej. Género).
-
-2.  Calidad del Dato:
-
--   No existen valores perdidos (NAs) ni caracteres extraños.
-
--   Los valores atípicos (outliers) en Age y CGPA han sido filtrados utilizando el criterio IQR, lo que resultará en modelos más estables y menos sesgados por casos extremos.
-
-3.  Estado de la Variable Objetivo (Depression):
-
--   Observando la media de la variable Depression en el resumen estadístico (Mean: 0.5855), concluimos que el dataset está razonablemente balanceado, con un 58.5% de casos positivos (estudiantes con depresión) frente a un 41.5% de casos negativos. Esto es una excelente noticia, ya que implica que no será estrictamente necesario aplicar técnicas de balanceo de clases (como SMOTE o Undersampling) en la fase de modelado, simplificando el flujo de trabajo.
-
-4.  Disponibilidad de Activos: Hemos exportado exitosamente tres versiones de los datos en la carpeta /data, cumpliendo con los requisitos de las distintas familias de algoritmos que exploraremos en los siguientes cuadernos:
-
--   Árboles y Reglas: Utilizarán student_depression_clean_factors.csv.
-
--   Modelos Probabilísticos: Podrán usar student_depression_numeric.csv.
-
--   Modelos de Distancia (k-NN, SVM, Redes): Utilizarán student_depression_normalized.csv.
-
-
-
-
-
--->
+head(df_numeric_standard_mi)</code></pre>
+<pre><code>##   Had.suicidal.thoughts Academic.Pressure Financial.Stress        Age
+## 1             0.7619473         1.3453951        -1.488559  1.4636878
+## 2            -1.3123795        -0.8265708        -0.792760 -0.3706759
+## 3            -1.3123795        -0.1025822        -1.488559  1.0560514
+## 4             0.7619473        -0.1025822         1.294638  0.4445969
+## 5             0.7619473         0.6214064        -1.488559 -0.1668577
+## 6            -1.3123795        -0.8265708        -1.488559  0.6484151
+##   Work.Study.Hours Dietary.Habits Study.Satisfaction     Degree Sleep.Duration
+## 1       -1.1226157      1.3748389        -0.69391252 -0.1371477     -0.3542413
+## 2       -1.1226157      0.1199654         1.51119962 -0.1371477     -0.3542413
+## 3        0.4963858      1.3748389         1.51119962 -0.1371477     -1.2418567
+## 4       -0.8527821      0.1199654        -0.69391252 -0.1371477      0.5333740
+## 5       -1.6622829      0.1199654         0.04112486  1.1909865     -0.3542413
+## 6       -0.8527821      1.3748389         0.04112486  2.5191207     -1.2418567
+##         CGPA Family.History.Mental.Illness Depression
+## 1  0.8953448                    -0.9686312        Yes
+## 2 -1.2008888                     1.0323475         No
+## 3 -0.4293109                     1.0323475         No
+## 4 -1.4125606                     1.0323475        Yes
+## 5  0.3217826                    -0.9686312         No
+## 6 -1.3374512                    -0.9686312         No</code></pre>
+<pre class="r"><code>write.csv(df_numeric_standard_mi, &quot;./data/student_depression_numeric_standard_mi.csv&quot;,
+          row.names = FALSE)</code></pre>
+</div>
+</div>
+</div>
+<div id="conclusiones" class="section level2">
+<h2>11. Conclusiones</h2>
+<p>En este documento hemos llevado a cabo el preprocesamiento completo
+del dataset original sobre depresión estudiantil, con el objetivo de
+obtener una base de datos limpia, consistente y adecuada para distintas
+técnicas de minería de datos y modelado predictivo.</p>
+<p>En primer lugar, hemos acotado el ámbito de estudio a la
+<strong>población estudiante</strong>, filtrando únicamente aquellos
+registros cuyo <code>Profession</code> es <code>&quot;Student&quot;</code> y
+eliminando variables sin valor informativo (identificadores y atributos
+constantes en este subgrupo). A continuación, se han corregido
+<strong>valores inconsistentes</strong> (como <code>&quot;?&quot;</code> en
+<code>Financial.Stress</code>), recodificado variables binarias a
+formato 0/1 y tratado de forma cuidadosa las <strong>variables
+ordinales</strong> (<code>Sleep.Duration</code>,
+<code>Dietary.Habits</code>), respetando el orden lógico de sus
+categorías.</p>
+<p>También hemos abordado la <strong>reducción de cardinalidad</strong>
+en variables categóricas de alta dimensión, como <code>City</code> y
+<code>Degree</code>, agrupando niveles poco frecuentes o muy específicos
+en categorías más generales y manejables. Este paso reduce el riesgo de
+sobreajuste y facilita la interpretación posterior de los modelos. Por
+otro lado, se ha realizado una <strong>gestión explícita de
+outliers</strong> en la variable <code>CGPA</code> mediante el criterio
+del rango intercuartílico (IQR), evitando que valores extremos
+distorsionen los resultados de algoritmos sensibles a la escala y a la
+distancia.</p>
+<p>Sobre esta base preprocesada se han generado diferentes
+<strong>versiones del dataset</strong>, adaptadas a distintos tipos de
+técnicas:</p>
+<ul>
+<li>Un dataset con factores
+(<code>student_depression_factors.csv</code>), pensado para modelos
+basados en árboles y análisis exploratorio.</li>
+<li>Un dataset numérico normalizado mediante <strong>Min-Max</strong>
+(<code>student_depression_numeric_minmax.csv</code>), adecuado para
+algoritmos basados en distancias.</li>
+<li>Un dataset numérico estandarizado
+(<code>student_depression_numeric_standard.csv</code>), orientado a
+modelos lineales y métodos que asumen variables centradas y
+escaladas.</li>
+</ul>
+<p>Finalmente, se ha incorporado una <strong>reducción de
+dimensionalidad basada en Información Mutua (MI)</strong> entre cada
+variable y la variable objetivo <code>Depression</code>. Este enfoque
+permite capturar dependencias no lineales que no se reflejan en la
+simple correlación lineal, especialmente relevante en un problema de
+salud mental donde las relaciones entre factores suelen ser complejas. A
+partir de este análisis, se han construido dos datasets reducidos:</p>
+<ul>
+<li><code>student_depression_numeric_minmax_mi.csv</code></li>
+<li><code>student_depression_numeric_standard_mi.csv</code></li>
+</ul>
+<p>ambos formados por las <strong>11 variables más informativas según
+MI</strong>, junto con la variable objetivo. Estas versiones reducidas
+proporcionan una base compacta y eficiente para el entrenamiento de
+modelos, mitigando la dimensionalidad sin perder las características más
+relevantes para la predicción de la depresión estudiantil.</p>
+<p>En conjunto, el pipeline de preprocesamiento implementado garantiza
+que los datos utilizados en las fases posteriores de modelado sean de
+calidad, estén adecuadamente transformados y ofrezcan tanto
+<strong>riqueza informativa</strong> como <strong>eficiencia
+computacional</strong>, sentando una base sólida para el análisis de la
+depresión en población estudiantil.</p>
 </div>
 </div>
 
@@ -2492,7 +2917,7 @@ $(document).ready(function ()  {
 
     // establish options
     var options = {
-      selectors: "h1,h2,h3",
+      selectors: "h1,h2,h3,h4",
       theme: "bootstrap3",
       context: '.toc-content',
       hashGenerator: function (text) {

@@ -5,14 +5,15 @@ output:
   html_document:
     toc: true
     toc_float: true
+    toc_depth: 4
     # number_sections: true
 ---
 
 # Preprocesamiento
 
-En este apartado realizamos las transformaciones necesarias para dejar nuestro dataset listo para análisis más avanzados y modelado predictivo. El objetivo es pasar de los datos brutos a una versión limpia y estructurada, reduciendo ruido y complejidad innecesaria.
+En este apartado realizamos las transformaciones necesarias para dejar nuestro dataset listo para análisis más avanzados y modelado predictivo. El objetivo es pasar de los datos brutos a una versión limpia, coherente y estructurada, reduciendo ruido y complejidad innecesaria y generando distintos **datasets derivados** adaptados a varios tipos de algoritmos de minería de datos.
 
-Las principales tareas de este preprocesamiento son:
+A lo largo de este proceso abordamos, entre otros, los siguientes aspectos:
 
 -   Filtrado de participantes que no sean estudiantes.
 -   Eliminación de columnas irrelevantes o constantes.
@@ -22,6 +23,8 @@ Las principales tareas de este preprocesamiento son:
 -   Reducción de la cardinalidad en variables categóricas con muchos niveles poco frecuentes (agrupamos ciudades por las más comunes y agrupamos grados por nivel académico).
 -   Conversión de variables categóricas a factores ordenados.
 -   Identificación y tratamiento de valores extremos en variables numéricas.
+-   Generación de diferentes versiones del dataset (con factores, numérica normalizada, numérica estandarizada).
+-   Reducción de dimensionalidad mediante **selección de atributos basada en Información Mutua**, conservando únicamente las variables más relevantes para predecir la depresión.
 
 A continuación, detallamos cada paso.
 
@@ -36,6 +39,9 @@ library(stringr)
 
 #install.packages("caret")
 library(caret)
+
+#install.packages("FSelector")
+library(FSelector)
 ```
 
 ## 1. Lectura del dataset
@@ -104,6 +110,17 @@ df_students <- df_students %>%
   mutate(
     Had.suicidal.thoughts = ifelse(Had.suicidal.thoughts == "Yes", 1,0),
     Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == "Yes", 1,0)
+  )
+
+head(df_students)
+```
+
+Y, de manera contraria, en la variable objetivo:
+
+```{r}
+df_students <- df_students %>%
+  mutate(
+    Depression = ifelse(Depression == 1, "Yes", "No")
   )
 
 head(df_students)
@@ -235,10 +252,10 @@ A partir de fuentes oficiales del sistema educativo indio (<https://www.cbse.gov
 
 Podemos definir las siguiente categorías:
 
-- **Bachillerato**: estudios preuniversitarios (p. ej. Class 12).
-- **Grado** (*Bachelor*): titulaciones universitarias de primer ciclo (BA, BSc, B.Com, BBA, BCA, B.Ed, LLB, B.Tech, BE, B.Arch, B.Pharm, BHM, MBBS).
-- **Máster** (*Master*): titulaciones de segundo ciclo o posgrado (MA, MSc, M.Com, MBA, M.Ed, LLM, M.Tech, ME, M.Pharm, MCA, MHM, MD).
-- **Doctorado**: nivel académico máximo (PhD).
+-   **Bachillerato**: estudios preuniversitarios (p. ej. Class 12).
+-   **Grado** (*Bachelor*): titulaciones universitarias de primer ciclo (BA, BSc, B.Com, BBA, BCA, B.Ed, LLB, B.Tech, BE, B.Arch, B.Pharm, BHM, MBBS).
+-   **Máster** (*Master*): titulaciones de segundo ciclo o posgrado (MA, MSc, M.Com, MBA, M.Ed, LLM, M.Tech, ME, M.Pharm, MCA, MHM, MD).
+-   **Doctorado**: nivel académico máximo (PhD).
 
 Procedimiento que vamos a seguir:
 
@@ -320,7 +337,7 @@ for (col in numeric_cols_outliers) {
 head(df_students)
 ```
 
-## 9. Dataset final para trabajar
+## 9. Dataset final
 
 Comparamos el número de observaciones antes y después del preprocesamiento para cuantificar cuántos registros se han eliminado debido a filtros, limpieza de valores inconsistentes y tratamiento de outliers.
 
@@ -347,172 +364,265 @@ str(df_students)
 summary(df_students)
 ```
 
-````{=html}
-<!--
-## 9. Generación de Datasets para Minería de Datos
+## 10. Generación de datasets para minería de datos
 
-En esta fase final del preprocesamiento, generaremos las distintas versiones del dataset necesarias para las tareas de minería de datos. Además, aplicaremos una Selección de atributos basada en filtros para eliminar variables redundantes generadas por la codificación *dummy*, mejorando así la calidad de los datos antes de guardarlos
+En esta fase final del preprocesamiento generamos distintas versiones del dataset, adaptadas a distintos tipos de algoritmos de minería de datos. Además de preparar datasets con diferentes escalados, incorporamos una **reducción de dimensionalidad basada en Información Mutua (MI)**, construyendo versiones reducidas que conservan únicamente las variables más informativas para predecir la depresión.
 
-### 9.1 Dataset 1: Variables como factores
+En concreto, obtenemos:
 
-Esta versión mantiene las variables categóricas y ordinales como factores de R. Es la versión adecuada para algoritmos basados en árboles de decisión (rpart) y para visualización semántica, donde la multicolinealidad no es tan crítica o el propio algoritmo la gestiona.
+1.  Un dataset con **variables categóricas como factores**, adecuado para modelos basados en árboles y análisis exploratorio.
+2.  Un dataset totalmente **numérico con normalización Min-Max**, apropiado para métodos basados en distancias.
+3.  Un dataset totalmente **numérico con estandarización** (media 0, desviación típica 1), adecuado para muchos modelos lineales y algoritmos de optimización basados en gradiente.
+4.  Dos datasets reducidos mediante **selección de atributos por Información Mutua**, a partir de las versiones normalizada y estandarizada, conservando las 11 variables más informativas además de la variable objetivo `Depression`.
+
+### 10.1 Dataset 1: variables como factores (`df_factors`)
+
+Dataset 1: igual que df_students (factores y variables categóricas).
 
 ```{r}
 df_factors <- df_students
-write.csv(df_factors, "./data/student_depression_clean_factors.csv", row.names = FALSE)
+
+write.csv(df_factors, "./data/student_depression_factors.csv",row.names = FALSE)
 ```
 
-### 9.2 Dataset 2: Codificación numérica y selección de atributos
+### 10.2 Dataset numérico y Min-Max scaler (`df_numeric_minmax`)
 
-A continuación, procedemos a transformar los datos para obtener una matriz puramente numérica. En primer lugar, convertimos las variables ordinales (Sleep.Duration y Dietary.Habits) a su representación entera, preservando el orden implícito que poseen.
+Primero construimos una versión totalmente numérica de df_students:
+
+1.  Convertimos las variables ordinales Sleep.Duration, Dietary.Habits y Degree a sus códigos numéricos respetando el orden.
+2.  Aplicamos One-Hot Encoding (variables dummy) a las variables nominales Gender, City y Degree
+
+Partimos del dataset con factores:
 
 ```{r}
-
 df_numeric_temp <- df_factors %>%
   mutate(
     Sleep.Duration = as.numeric(Sleep.Duration),
-    Dietary.Habits = as.numeric(Dietary.Habits)
-  )
+    Dietary.Habits = as.numeric(Dietary.Habits),
+    Degree = as.numeric(Degree),
+)
 
+head(df_numeric_temp)
 ```
 
-Las **variables nominales** (Gender, City, Degree) no tienen un orden matemático, por lo que utilizamos la técnica de **One-Hot Encoding** (variables dummy). Esto expande cada categoría en una nueva columna binaria. Utilizamos la función dummyVars del paquete caret para crear este modelo de transformación.
+**One-Hot Encoding** para variables nominales:
 
 ```{r}
+dummies_model <- dummyVars(~ Gender + City, data = df_numeric_temp)
 
-dummies_model <- dummyVars(~ Gender + City + Degree, data = df_numeric_temp)
-df_dummies <- predict(dummies_model, newdata = df_numeric_temp)
-df_dummies <- as.data.frame(df_dummies)
-
+df_dummies <- predict(dummies_model, newdata = df_numeric_temp) %>%
+  as.data.frame()
 ```
 
-Unimos las nuevas variables dummy al dataset original numérico y eliminamos las columnas categóricas originales, ya que han sido sustituidas.
+Unimos variables dummy y eliminamos las categóricas originales:
 
 ```{r}
+df_numeric_full <- df_numeric_temp %>%
+  select(-Gender, -City) %>%
+  cbind(df_dummies)
 
-df_numeric_full <- cbind(df_numeric_temp, df_dummies) %>%
-  select(-Gender, -City, -Degree)
-
+head(df_numeric_full)
 ```
 
-Al generar variables dummy, es común introducir redundancia (multicolinealidad) en los datos. Para mitigar esto, aplicamos una técnica de Selección de Atributos (Filtro). Primero, calculamos la matriz de correlación de todas las variables predictoras, excluyendo la variable objetivo (Depression).
+Ahora aplicamos **normalización Min-Max** a todas las variables predictoras, dejando fuera la variable objetivo Depression.
 
 ```{r}
+cols_to_scale <- setdiff(names(df_numeric_full), "Depression")
 
-cor_matrix <- cor(df_numeric_full[, setdiff(names(df_numeric_full), "Depression")])
+process_minmax <- preProcess(
+  df_numeric_full[, cols_to_scale],
+  method = "range"
+)
 
+df_minmax_values <- predict(process_minmax, df_numeric_full[, cols_to_scale])
 ```
 
-Utilizamos la función findCorrelation de caret para identificar automáticamente las variables que tienen una correlación absoluta superior a 0.75. Esta función nos devuelve los índices de las columnas que deben eliminarse para reducir la redundancia.
+Reconstruimos el dataset añadiendo la variable objetivo sin escalar:
 
 ```{r}
+df_numeric_minmax <- df_minmax_values %>%
+  mutate(Depression = df_numeric_full$Depression)
 
-high_cor_indices <- findCorrelation(cor_matrix, cutoff = 0.75)
-redundant_vars <- colnames(cor_matrix)[high_cor_indices]
-
-cat("Variables eliminadas por alta correlación (> 0.75):\n")
-print(redundant_vars)
-
+head(df_numeric_minmax)
 ```
 
-Tras aplicar el filtro de correlación con un umbral de 0.75, el algoritmo ha identificado y eliminado la variable `Gender.Female`. Esto es un comportamiento esperado y deseable. Al realizar la codificación *One-Hot* sobre la variable binaria original `Gender` (Male/Female), se generaron dos columnas (`Gender.Male` y `Gender.Female`) que son perfectamente colineales (si un estudiante no es hombre, necesariamente es mujer, y viceversa).
-
-Mantener ambas columnas introduciría **multicolinealidad perfecta**, lo que puede desestabilizar modelos lineales como la Regresión Logística. La eliminación automática de una de ellas valida la eficacia de este paso de preprocesamiento.
-
-Finalmente, eliminamos dichas variables redundantes del dataset numérico y guardamos el resultado optimizado en un archivo CSV.
+Y guardamos el dataset:
 
 ```{r}
-
-df_numeric_final <- df_numeric_full %>% select(-all_of(redundant_vars))
-write.csv(df_numeric_final, "./data/student_depression_numeric.csv", row.names = FALSE)
-
+write.csv(df_numeric_minmax, "./data/student_depression_numeric_minmax.csv", 
+          row.names = FALSE)
 ```
 
-### 9.3 Dataset 3: Normalización (Min-Max)
+#### 10.2.1 Reducción de dimensionalidad mediante Información Mutua (dataset Min-Max)
 
-Observando el resumen estadístico del dataset numérico, vemos variables con rangos muy dispares: `Age` varía aproximadamente entre 18 y 60, mientras que `CGPA` lo hace entre 0 y 10, y las variables binarias entre 0 y 1.
+La **Información Mutua (MI)** mide cuánta información aporta cada variable para predecir la depresión, capturando relaciones no lineales, lo cual es especialmente útil en nuestro caso, donde la correlación lineal entre características es baja.
 
-Para algoritmos basados en el cálculo de distancias (como k-NN, que utilizaremos en la siguiente fase) o basados en el descenso de gradiente (como Redes Neuronales), esta disparidad haría que la variable `Age` dominara el cálculo de la distancia sobre el resto. Al aplicar la normalización **Min-Max**, transformamos todas las variables predictoras al rango $[0, 1]$, asegurando que todas contribuyan equitativamente al modelo. La variable objetivo `Depression` se excluye de este proceso para mantener su naturaleza binaria original.
+Trabajamos con el dataset numérico normalizado (Min-Max)
 
 ```{r}
+df_mi_minmax <- df_numeric_minmax
 
-cols_to_scale <- setdiff(names(df_numeric_final), "Depression")
-
+df_mi_minmax$Depression <- as.factor(df_mi_minmax$Depression)
 ```
 
-Calculamos los parámetros de escalado utilizando la función preProcess de caret con el método "range", que aplica una normalización Min-Max para llevar los valores al intervalo [0, 1].
+Cálculo de la información mutua de cada variable respecto a Depression
 
 ```{r}
-
-process_minmax <- preProcess(df_numeric_final[, cols_to_scale], method = c("range"))
-
+mi_minmax <- information.gain(Depression ~ ., data = df_mi_minmax)
 ```
 
-Aplicamos la transformación calculada a los datos.
+Ordenamos de mayor a menor relevancia
 
 ```{r}
+mi_minmax_sorted <- mi_minmax[order(-mi_minmax$attr_importance), , drop = FALSE]
 
-df_normalized_values <- predict(process_minmax, df_numeric_final[, cols_to_scale])
-
+mi_minmax_sorted
 ```
 
-Reconstruimos el dataset final añadiendo de nuevo la variable objetivo Depression (que no debe ser escalada ya que es binaria) y guardamos el archivo CSV definitivo.
+Representamos gráficamente los resultados para visualizar qué variables son más informativas respecto a la depresión:
 
 ```{r}
-
-df_normalized_final <- df_normalized_values %>%
-  mutate(Depression = df_numeric_final$Depression)
-
-write.csv(df_normalized_final, "./data/student_depression_normalized.csv", row.names = FALSE)
-
+barplot(
+  mi_minmax_sorted$attr_importance,
+  names.arg = rownames(mi_minmax_sorted),
+  las = 2,
+  cex.names = 0.7,
+  main = "Información mutua respecto a Depression (Min-Max)",
+  ylab = "MI"
+)
 ```
 
-El preprocesamiento ha concluido con éxito. Mostramos un resumen de las dimensiones y estructura del dataset final normalizado.
+Seleccionamos las 11 variables más informativas según MI y construimos un nuevo dataset reducido:
 
 ```{r}
+k_top <- 11
 
-cat("Dimensiones finales (filas, columnas):", dim(df_normalized_final))
-summary(df_normalized_final)
-
+top_vars_minmax <- rownames(mi_minmax_sorted)[1:k_top]
+top_vars_minmax
 ```
 
-## 10. Conclusiones
-
-Tras ejecutar el pipeline completo de limpieza y transformación, hemos obtenido un conjunto de datos robusto y preparado para la fase de modelado. A partir del análisis del dataset final (df_normalized), extraemos las siguientes conclusiones técnicas:
-
-1.  Reducción de Dimensionalidad Controlada:
-
--   Partíamos de un dataset crudo con variables ruidosas. Tras la limpieza, el One-Hot Encoding y la selección de atributos, hemos consolidado un dataset con 75 columnas.
-
--   Se ha mitigado la explosión de dimensionalidad derivada de la variable Degree agrupando las titulaciones minoritarias, lo que evita la dispersión de datos (sparsity).
-
--   Se ha eliminado la redundancia introducida por las variables dummy binarias (ej. Género).
-
-2.  Calidad del Dato:
-
--   No existen valores perdidos (NAs) ni caracteres extraños.
-
--   Los valores atípicos (outliers) en Age y CGPA han sido filtrados utilizando el criterio IQR, lo que resultará en modelos más estables y menos sesgados por casos extremos.
-
-3.  Estado de la Variable Objetivo (Depression):
-
--   Observando la media de la variable Depression en el resumen estadístico (Mean: 0.5855), concluimos que el dataset está razonablemente balanceado, con un 58.5% de casos positivos (estudiantes con depresión) frente a un 41.5% de casos negativos. Esto es una excelente noticia, ya que implica que no será estrictamente necesario aplicar técnicas de balanceo de clases (como SMOTE o Undersampling) en la fase de modelado, simplificando el flujo de trabajo.
-
-4.  Disponibilidad de Activos: Hemos exportado exitosamente tres versiones de los datos en la carpeta /data, cumpliendo con los requisitos de las distintas familias de algoritmos que exploraremos en los siguientes cuadernos:
-
--   Árboles y Reglas: Utilizarán student_depression_clean_factors.csv.
-
--   Modelos Probabilísticos: Podrán usar student_depression_numeric.csv.
-
--   Modelos de Distancia (k-NN, SVM, Redes): Utilizarán student_depression_normalized.csv.
+Construimos el dataset reducido (11 mejores variables + objetivo) y lo guardamos:
 
 ```{r}
+df_numeric_minmax_mi <- df_numeric_minmax %>%
+  dplyr::select(all_of(top_vars_minmax), Depression)
 
+head(df_numeric_minmax_mi)
 ```
 
 ```{r}
-
+write.csv(df_numeric_minmax_mi, "./data/student_depression_numeric_minmax_mi.csv",
+          row.names = FALSE)
 ```
 
--->
-````
+### 10.3 Dataset numérico y Standard Scaler (`df_numeric_standard`)
+
+A partir del mismo dataset numérico `df_numeric_full` utilizado en el apartado anterior, aplicamos ahora un **escalado estándar** a las variables predictoras:
+
+```{r}
+cols_to_scale <- setdiff(names(df_numeric_full), "Depression")
+
+process_standard <- preProcess(
+  df_numeric_full[, cols_to_scale],
+  method = c("center", "scale")
+)
+```
+
+Aplicamos la transformación estándar a las variables predictoras:
+
+```{r}
+df_standard_values <- predict(process_standard, df_numeric_full[, cols_to_scale])
+```
+
+Reconstruimos el dataset añadiendo la variable objetivo sin escalar:
+
+```{r}
+df_numeric_standard <- df_standard_values %>%
+  mutate(Depression = df_numeric_full$Depression)
+
+head(df_numeric_standard)
+```
+
+Y guardamos el dataset estandarizado:
+
+```{r}
+write.csv(df_numeric_standard, "./data/student_depression_numeric_standard.csv",
+          row.names = FALSE)
+
+head(df_numeric_standard)
+```
+
+#### 10.3.1 Reducción de dimensionalidad mediante Información Mutua (dataset Standard Scaler)
+
+La Información Mutua es **invariante ante transformaciones monótonas** como la normalización Min-Max o el escalado estándar (centrado y escalado). Por ello, el patrón de relevancia de las variables obtenido en el apartado 10.2.1 sigue siendo válido para el dataset estandarizado.La Información Mutua es invariante ante transformaciones monótonas como la normalización Min-Max o el escalado estándar (centrado y escalado). Por ello, el patrón de relevancia de las variables obtenido en el apartado 10.2.1 sigue siendo válido para el dataset estandarizado.
+
+Aun así, por coherencia con la estructura del documento, recalculamos la MI sobre el dataset `df_numeric_standard`:
+
+```{r}
+df_mi_standard <- df_numeric_standard
+df_mi_standard$Depression <- as.factor(df_mi_standard$Depression)
+
+mi_standard <- information.gain(Depression ~ ., data = df_mi_standard)
+mi_standard_sorted <- mi_standard[order(-mi_standard$attr_importance), , drop = FALSE]
+
+mi_standard_sorted
+```
+
+Y mostramos su gráfico:
+
+```{r}
+barplot(
+  mi_standard_sorted$attr_importance,
+  names.arg = rownames(mi_standard_sorted),
+  las = 2,
+  cex.names = 0.7,
+  main = "Información mutua respecto a Depression (Standard Scaler)",
+  ylab = "MI"
+)
+```
+
+Seleccionamos las 11 variables más informativas según MI y construimos un nuevo dataset reducido:
+
+```{r}
+k_top <- 11
+
+top_vars_standard <- rownames(mi_standard_sorted)[1:k_top]
+top_vars_standard
+```
+
+Construimos el dataset reducido (11 mejores variables + objetivo) y lo guardamos:
+
+```{r}
+df_numeric_standard_mi <- df_numeric_standard %>%
+  dplyr::select(all_of(top_vars_standard), Depression)
+
+head(df_numeric_standard_mi)
+```
+
+```{r}
+write.csv(df_numeric_standard_mi, "./data/student_depression_numeric_standard_mi.csv",
+          row.names = FALSE)
+```
+
+## 11. Conclusiones
+
+En este documento hemos llevado a cabo el preprocesamiento completo del dataset original sobre depresión estudiantil, con el objetivo de obtener una base de datos limpia, consistente y adecuada para distintas técnicas de minería de datos y modelado predictivo.
+
+En primer lugar, hemos acotado el ámbito de estudio a la **población estudiante**, filtrando únicamente aquellos registros cuyo `Profession` es `"Student"` y eliminando variables sin valor informativo (identificadores y atributos constantes en este subgrupo). A continuación, se han corregido **valores inconsistentes** (como `"?"` en `Financial.Stress`), recodificado variables binarias a formato 0/1 y tratado de forma cuidadosa las **variables ordinales** (`Sleep.Duration`, `Dietary.Habits`), respetando el orden lógico de sus categorías.
+
+También hemos abordado la **reducción de cardinalidad** en variables categóricas de alta dimensión, como `City` y `Degree`, agrupando niveles poco frecuentes o muy específicos en categorías más generales y manejables. Este paso reduce el riesgo de sobreajuste y facilita la interpretación posterior de los modelos. Por otro lado, se ha realizado una **gestión explícita de outliers** en la variable `CGPA` mediante el criterio del rango intercuartílico (IQR), evitando que valores extremos distorsionen los resultados de algoritmos sensibles a la escala y a la distancia.
+
+Sobre esta base preprocesada se han generado diferentes **versiones del dataset**, adaptadas a distintos tipos de técnicas:
+
+-   Un dataset con factores (`student_depression_factors.csv`), pensado para modelos basados en árboles y análisis exploratorio.
+-   Un dataset numérico normalizado mediante **Min-Max** (`student_depression_numeric_minmax.csv`), adecuado para algoritmos basados en distancias.
+-   Un dataset numérico estandarizado (`student_depression_numeric_standard.csv`), orientado a modelos lineales y métodos que asumen variables centradas y escaladas.
+
+Finalmente, se ha incorporado una **reducción de dimensionalidad basada en Información Mutua (MI)** entre cada variable y la variable objetivo `Depression`. Este enfoque permite capturar dependencias no lineales que no se reflejan en la simple correlación lineal, especialmente relevante en un problema de salud mental donde las relaciones entre factores suelen ser complejas. A partir de este análisis, se han construido dos datasets reducidos:
+
+-   `student_depression_numeric_minmax_mi.csv`
+-   `student_depression_numeric_standard_mi.csv`
+
+ambos formados por las **11 variables más informativas según MI**, junto con la variable objetivo. Estas versiones reducidas proporcionan una base compacta y eficiente para el entrenamiento de modelos, mitigando la dimensionalidad sin perder las características más relevantes para la predicción de la depresión estudiantil.
+
+En conjunto, el pipeline de preprocesamiento implementado garantiza que los datos utilizados en las fases posteriores de modelado sean de calidad, estén adecuadamente transformados y ofrezcan tanto **riqueza informativa** como **eficiencia computacional**, sentando una base sólida para el análisis de la depresión en población estudiantil.

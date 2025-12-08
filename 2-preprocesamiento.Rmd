@@ -10,16 +10,22 @@ output:
 
 # Preprocesamiento
 
-En este apartado vamos a realizar las transformaciones necesarias para dejar nuestro dataset listo para análisis más avanzados y modelado predictivo. Entre las tareas principales se incluyen:
+En este apartado realizamos las transformaciones necesarias para dejar nuestro dataset listo para análisis más avanzados y modelado predictivo. El objetivo es pasar de los datos brutos a una versión limpia y estructurada, reduciendo ruido y complejidad innecesaria.
+
+Las principales tareas de este preprocesamiento son:
 
 -   Filtrado de participantes que no sean estudiantes.
--   Eliminación de columnas irrelevantes.
--   Recodificación de variables categóricas binarias (“Yes”/“No”) a numéricas.
--   Discretización y codificación de variables ordinales, como la duración del sueño.
--   Posible agrupación o recodificación de variables con niveles poco representativos.
+-   Eliminación de columnas irrelevantes o constantes.
+-   Limpieza de valores inconsistentes (como `"?"` o comillas en textos).
+-   Recodificación de variables categóricas binarias (“Yes”/“No”) a formato numérico.
+-   Tratamiento de variables ordinales (p. ej. duración del sueño, hábitos dietéticos).
+-   Reducción de la cardinalidad en variables categóricas con muchos niveles poco frecuentes (agrupamos ciudades por las más comunes y agrupamos grados por nivel académico).
+-   Conversión de variables categóricas a factores ordenados.
 -   Identificación y tratamiento de valores extremos en variables numéricas.
 
-Antes de comenzar, vamos a importar las librerías que nos van a hacer falta en este notebook.
+A continuación, detallamos cada paso.
+
+En primer lugar, vamos a importar las librerías que nos van a hacer falta.
 
 ```{r}
 #install.packages("dplyr")
@@ -34,7 +40,7 @@ library(caret)
 
 ## 1. Lectura del dataset
 
-Leemos el archivo CSV `student_depression_dataset` que se encuentra en la carpeta `data`.
+Leemos el archivo CSV `student_depression_dataset.csv` ubicado en la carpeta `data`. Esta será la base sobre la que aplicaremos todos los pasos de preprocesamiento.
 
 ```{r}
 data <- read.csv("./data/student_depression_dataset.csv", sep=",")
@@ -43,12 +49,14 @@ head(data)
 
 ## 2. Filtrado inicial y limpieza estructural
 
-Como hemos comentado en la parte de visualización del dataset, la mayoría de participantes son estudiantes, por lo que vamos a hacer un filtro para quedarnos únicamente con los estudiantes y vamos a eliminar aquellas columnas que no van a aportarnos ninguna información como son:
+Tal y como vimos en la fase de visualización, la mayoría de participantes son **estudiantes**. Dado que nuestro foco es la depresión en población estudiantil, filtramos el dataset para quedarnos únicamente con este grupo.
+
+Además, eliminamos columnas que no aportan información útil al análisis o que son constantes en este subconjunto:
 
 -   `id`: identificador sin utilidad analítica.
--   `Work.Pressure`: constante en estudiantes (valor 0 en todos los casos).
--   `Job.Satisfaction`: constante en estudiantes (valor 0 en todos los casos).
--   `Profession`: vamos a trabajar solo con estudiantes
+-   `Work.Pressure`: constante (0) en el caso de estudiantes.
+-   `Job.Satisfaction`: constante (0) en el caso de estudiantes.
+-   `Profession`: dejamos de necesitarla una vez filtrado por estudiantes.
 
 ```{r}
 df_students <- data %>%
@@ -58,27 +66,38 @@ df_students <- data %>%
 head(df_students)
 ```
 
-A continuación, vamos a renombrar ciertas variables para que sea más comodo trabajar con ellas.
+## 3. Renombrado de variables y limpieza de valores inconsistentes
+
+### 3.1. Renombrado de variables
+
+En primer lugar, renombramos algunas variables para trabajar con nombres más manejables y legibles en el código:
+
+-   `Have.you.ever.had.suicidal.thoughts..` pasará a ser `Had.suicidal.thoughts`
+-   `Family.History.of.Mental.Illness` pasará a ser `Family.History.Mental.Illness`
 
 ```{r}
 df_students <- df_students %>%
   rename(Had.suicidal.thoughts=Have.you.ever.had.suicidal.thoughts.., 
          Family.History.Mental.Illness=Family.History.of.Mental.Illness)
+
+head(df_students)
 ```
 
-## 4. Limpieza de valores inconsistentes
+### 3.2. Limpieza de valores inconsistentes en `Financial.Stress`
 
-En la visualización detectamos que la variable `Financial.Stress` contiene valores representados por el carácter `?`. Estos valores constituyen ruido y no permiten la conversión numérica. Procedemos a filtrar estos registros antes de transformar la variable, siguiendo las prácticas de limpieza de datos para eliminar valores inconsistentes.
+En la visualización nos percatamos de que la variable `Financial.Stress` contiene valores representados por el carácter `"?"`. Estos valores constituyen ruido y no permiten la conversión numérica. Procedemos a filtrar estos registros antes de transformar la variable, siguiendo las prácticas de limpieza de datos para eliminar valores inconsistentes.
 
 ```{r}
 df_students <- df_students %>%
   filter(Financial.Stress != "?") %>%
   mutate(Financial.Stress = as.numeric(Financial.Stress))
+
+head(df_students)
 ```
 
-## 5. Codificación de variables booleanas
+## 4. Codificación de variables booleanas
 
-Transformamos las variables categóricas binarias ("Yes"/"No") a una representación numérica (1/0) para que puedan ser procesadas matemáticamente por los algoritmos de modelado posteriores.
+Algunas variables están en formato **categórico binario** ("Yes"/"No"). Para que los algoritmos de modelado puedan procesarlos correctamente, los convertimos a representación numérica (1/0):
 
 ```{r}
 df_students <- df_students %>%
@@ -86,19 +105,31 @@ df_students <- df_students %>%
     Had.suicidal.thoughts = ifelse(Had.suicidal.thoughts == "Yes", 1,0),
     Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == "Yes", 1,0)
   )
+
+head(df_students)
 ```
 
-## 6. Tratamiento de variables ordinales
+## 5. Tratamiento de variables ordinales
 
-La variable `Sleep.Duration` presenta inconsistencias de formato: los valores están encerrados entre comillas (ej. 'Less than 5 hours') y existe una categoría "Others" no informativa. Dado que la manipulación de cadenas en R base puede resultar compleja, utilizaremos la **librería stringr** (mencionada como recurso recomendado en la documentación de R Base) para limpiar estos caracteres antes de la conversión.
+### 5.1. Duración del sueño (`Sleep.Duration`)
 
-El proceso consiste en:
+La variable `Sleep.Duration` presenta:
 
-1.  Eliminar cualquier tipo de comillas (simples o dobles) de la cadena.
+-   Valores encerrados entre comillas (p. ej. `'Less than 5 hours'`).
+-   Una categoría "Others" poco informativa para el análisis.
 
-2.  Filtrar y eliminar los registros que, tras la limpieza, resulten ser "Others".
+El procedimiento que vamos a seguir es:
 
-3.  Convertir la variable limpia a factor ordenado.
+1.  Eliminar cualquier tipo de comillas (simples o dobles) en la cadena.
+
+2.  Filtrar y eliminar las observaciones etiquetadas como `"Others"`.
+
+3.  Convertir la variable a **factor ordenado**, respetando el orden lógico de la calidad del descanso:
+
+    1.  "Less than 5 hours"
+    2.  "5-6 hours"
+    3.  "7-8 hours"
+    4.  "More than 8 hours"
 
 ```{r}
 sleep_duration_levels <- c("Less than 5 hours", "5-6 hours", "7-8 hours", "More than 8 hours")
@@ -110,9 +141,23 @@ df_students <- df_students %>%
     Sleep.Duration = factor(Sleep.Duration, levels = sleep_duration_levels, 
                             ordered = TRUE)
   )
+
+head(df_students)
 ```
 
-Aplicamos una lógica similar para `Dietary.Habits`, estableciendo un orden de calidad en la dieta y eliminando registros no informativos si los hubiera.
+### 5.2. Hábitos dietéticos (`Dietary.Habits`)
+
+Aplicamos una lógica similar para `Dietary.Habits`:
+
+-   Eliminamos la categoría `"Others"` si aparece.
+
+-   Definimos un orden natural según la calidad de la dieta:
+
+    1.  "Unhealthy"
+    2.  "Moderate"
+    3.  "Healthy"
+
+Convertimos la variable a **factor ordenado** de acuerdo con este criterio.
 
 ```{r}
 df_students <- df_students %>%
@@ -122,16 +167,25 @@ df_students <- df_students %>%
                             levels = c("Unhealthy", "Moderate", "Healthy"), 
                             ordered = TRUE)
   )
+
+head(df_students)
 ```
 
-## 7. Reducción de cardinalidad en variables categóricas
+## 6. Reducción de cardinalidad en variables categóricas
 
-La variable `City` posee un **alto número de categorías con baja frecuencia**, lo que puede dificultar el aprendizaje de los modelos. Agrupamos las titulaciones minoritarias bajo la etiqueta "Other", manteniendo únicamente las 10 más frecuentes.
+### 6.1. Agrupación de ciudades (`City`)
+
+La variable `City` presenta un número elevado de categorías con muy pocos casos. Esto puede:
+
+-   Aumentar innecesariamente la complejidad del modelo.
+-   Introducir ruido en lugar de información útil.
+
+Por ello, agrupamos todas las ciudades poco frecuentes bajo la etiqueta `"Other"`, manteniendo únicamente las **20 ciudades con mayor frecuencia**.
 
 ```{r}
 top_cities <- df_students %>%
   count(City) %>%
-  top_n(25, wt = n) %>%
+  top_n(20, wt = n) %>%
   pull(City)
 
 df_students <- df_students %>%
@@ -139,15 +193,19 @@ df_students <- df_students %>%
     City = ifelse(City %in% top_cities, City, "Other"),
     City = as.factor(City)
   )
+
+head(df_students)
 ```
 
-Con la variable `Degree` ocurre algo parecido que con la variable `City`, pero ahora vamos a darle otro enfoque. Vamos a agrupar por **nivel académico**
+### 6.2. Agrupación de titulaciones académicas (`Degree`)
+
+La variable `Degree` incluye una gran variedad de titulaciones específicas del sistema educativo indio. Para facilitar su interpretación y análisis, agrupamos las titulaciones por **nivel académico**.
 
 ```{r}
 unique(df_students$Degree)
 ```
 
-Según lo que hemos investigado (<https://www.cbse.gov.in/>, <https://www.barcouncilofindia.org/>, <https://www.coa.gov.in/>, <https://www.pci.nic.in/>, <https://www.nmc.org.in/>), cada estudio significa lo siguiente:
+A partir de fuentes oficiales del sistema educativo indio (<https://www.cbse.gov.in/>, <https://www.barcouncilofindia.org/>, <https://www.coa.gov.in/>, <https://www.pci.nic.in/>, <https://www.nmc.org.in/>) obtenemos el significado de cada acrónimo:
 
 -   **Class 12**: equivalente al bachillerato o secundaria superior india. Es el nivel previo a la universidad.
 -   **BA (Bachelor of Arts)**: grado universitario en artes, humanidades o ciencias sociales.
@@ -175,12 +233,19 @@ Según lo que hemos investigado (<https://www.cbse.gov.in/>, <https://www.barcou
 -   **MD (Doctor of Medicine)**: especialización médica de posgrado (nivel máster, aunque con alta especialización clínica).
 -   **PhD (Doctor of Philosophy)**: doctorado académico, el máximo nivel universitario.
 
-Para agruparlo por nivel académico hemos creado las siguientes categorías:
+Podemos definir las siguiente categorías:
 
--   **Bachillerato**: estudios preuniversitarios (p. ej. *Class 12*).
--   **Grado**: titulaciones universitarias de primer ciclo (BA, BSc, B.Tech, MBBS, etc.).
--   **Master**: titulaciones de segundo ciclo o posgrado (MA, MSc, MBA, M.Tech, MD, etc.).
--   **Doctorado**: máximo nivel académico (PhD).
+- **Bachillerato**: estudios preuniversitarios (p. ej. Class 12).
+- **Grado** (*Bachelor*): titulaciones universitarias de primer ciclo (BA, BSc, B.Com, BBA, BCA, B.Ed, LLB, B.Tech, BE, B.Arch, B.Pharm, BHM, MBBS).
+- **Máster** (*Master*): titulaciones de segundo ciclo o posgrado (MA, MSc, M.Com, MBA, M.Ed, LLM, M.Tech, ME, M.Pharm, MCA, MHM, MD).
+- **Doctorado**: nivel académico máximo (PhD).
+
+Procedimiento que vamos a seguir:
+
+1.  Eliminamos comillas en los valores de `Degree` (si las hubiera).
+2.  Excluimos la categoría `"Others"`.
+3.  Mapeamos cada titulación a uno de los cuatro niveles definidos.
+4.  Convertimos `Degree` en **factor ordenado** según el nivel académico.
 
 ```{r}
 degree_levels <- c("Bachillerato", "Grado", "Master", "Doctorado")
@@ -203,20 +268,37 @@ df_students <- df_students %>%
     ),
     Degree = factor(Degree, levels = degree_levels,ordered = TRUE)
   )
+
+head(df_students)
 ```
 
-Convertimos también Gender a **factores**.
+## 7. Conversión de otras variables categóricas a factores
+
+Finalmente, convertimos otras variables categóricas relevantes a tipo factor. Por ejemplo, `Gender`, que utilizaremos posteriormente como variable explicativa o de segmentación en el análisis.
 
 ```{r}
 df_students <- df_students %>%
   mutate(
     Gender = as.factor(Gender),
   )
+
+head(df_students)
 ```
 
 ## 8. Gestión de outliers
 
-Para asegurar la calidad de los datos numéricos, identificamos y eliminamos valores atípicos identificados en el notebook de visualización en la variable **CGPA** utilizando el criterio del **Rango intercuartílico** (IQR). Esto evita que valores extremos sesguen los resultados de modelos sensibles a la distancia.
+Para asegurar la calidad de las variables numéricas, identificamos y eliminamos valores atípicos detectados en la fase de visualización. Nos centramos en la variable `CGPA`, aplicando el criterio del **rango intercuartílico (IQR)**:
+
+-   Calculamos Q1 y Q3 (cuartiles 25 y 75).
+
+-   Obtenemos el IQR = Q3 - Q1.
+
+-   Definimos los límites:
+
+    -   Límite inferior = Q1 - 1.5 x IQR\
+    -   Límite superior = Q3 + 1.5 x IQR
+
+Eliminamos las observaciones que quedan fuera de estos límites, reduciendo el impacto de valores extremos sobre los modelos sensibles a la distancia.
 
 ```{r}
 numeric_cols_outliers <- c("CGPA")
@@ -234,9 +316,38 @@ remove_outliers <- function(data, variable) {
 for (col in numeric_cols_outliers) {
   df_students <- remove_outliers(df_students, col)
 }
+
+head(df_students)
 ```
 
+## 9. Dataset final para trabajar
 
+Comparamos el número de observaciones antes y después del preprocesamiento para cuantificar cuántos registros se han eliminado debido a filtros, limpieza de valores inconsistentes y tratamiento de outliers.
+
+```{r}
+n_inicial <- nrow(data)
+n_final <- nrow(df_students)
+
+cat("Número de observaciones iniciales:", n_inicial, "\n")
+cat("Número de observaciones tras el preprocesamiento:", n_final, "\n")
+cat("Registros eliminados:", n_inicial - n_final, "\n")
+```
+
+El dataset final quedaría de la siguiente manera:
+
+```{r}
+head(df_students)
+```
+
+```{r}
+str(df_students)
+```
+
+```{r}
+summary(df_students)
+```
+
+````{=html}
 <!--
 ## 9. Generación de Datasets para Minería de Datos
 
@@ -404,3 +515,4 @@ Tras ejecutar el pipeline completo de limpieza y transformación, hemos obtenido
 ```
 
 -->
+````

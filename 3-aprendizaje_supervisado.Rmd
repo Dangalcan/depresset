@@ -22,7 +22,11 @@ En el cuaderno de preprocesamiento ya se generaron varios datasets derivados:
 
 En este cuaderno vamos a:
 
--   Cargar estos datasets derivados y preparar la variable objetivo. - Definir un esquema de partición train/test estratificado. - Aplicar validación cruzada para estimar el rendimiento de varios modelos.
+-   Cargar estos datasets derivados y preparar la variable objetivo.
+
+-   Definir un esquema de partición train/test estratificado.
+
+-   Aplicar validación cruzada para estimar el rendimiento de varios modelos.
 
 -   Entrenar y comparar los siguientes modelos:
 
@@ -44,8 +48,7 @@ En este cuaderno vamos a:
 
 El objetivo final es proporcionar una visión completa de la capacidad predictiva del dataset y del rol que juegan los distintos factores asociados a la depresión en estudiantes.
 
-
-Antes de comenzar con el análisis, cargamos las librerías necesarias. Utilizaremos `caret` como framework principal para el entrenamiento y evaluación de modelos, `dplyr` y `tidyr` para la manipulación de datos, `ggplot2` para la visualización y paquetes específicos para cada algoritmo (`rpart`, `glmnet`, `xgboost`, `randomForest`). También emplearemos `doParallel` para acelerar el cómputo aprovechando los múltiples núcleos del procesador.
+Antes de comenzar con el análisis, cargamos las librerías necesarias. Emplearemos `doParallel` para acelerar el cómputo aprovechando los múltiples núcleos del procesador.
 
 ```{r}
 # install.packages('caret')
@@ -71,6 +74,12 @@ library(xgboost)
 
 # install.packages('pROC')
 library(pROC)
+
+#install.packages("fastshap")
+library(fastshap)
+
+#install.packages("shapviz")
+library(shapviz)
 
 # install.packages("doParallel")
 library(doParallel)
@@ -101,10 +110,10 @@ message("Nota: Abre el Administrador de Tareas para ver tu CPU al 100% durante e
 
 En la fase de preprocesamiento generamos distintas versiones del dataset para adaptarnos a los requerimientos de los diferentes algoritmos de aprendizaje automático. A continuación, cargamos estos ficheros:
 
-*   **`df_factors`**: Contiene variables categóricas y numéricas sin escalar. Es la versión ideal para modelos basados en árboles (Árboles de Decisión, Random Forest), que no requieren normalización y manejan bien las categorías.
-*   **`df_minmax`**: Versión con variables numéricas escaladas al rango [0, 1]. Este formato es preferible para algoritmos basados en distancias (como KNN) y redes neuronales, y suele funcionar bien con XGBoost.
-*   **`df_standard`**: Versión con variables estandarizadas (media 0, varianza 1). Es fundamental para modelos lineales (Regresión Logística, GLMNet) donde la escala de las variables influye en los coeficientes.
-*   **Versiones `_mi`**: Son variantes de los datasets anteriores donde se ha aplicado una selección de características basada en Información Mutua (Mutual Information) para reducir la dimensionalidad y eliminar ruido.
+-   **`df_factors`**: Contiene variables categóricas y numéricas sin escalar. Es la versión ideal para modelos basados en árboles (Árboles de Decisión, Random Forest), que no requieren normalización y manejan bien las categorías.
+-   **`df_minmax`**: Versión con variables numéricas escaladas al rango [0, 1]. Este formato es preferible para algoritmos basados en distancias (como KNN) y redes neuronales, y suele funcionar bien con XGBoost.
+-   **`df_standard`**: Versión con variables estandarizadas (media 0, varianza 1). Es fundamental para modelos lineales (Regresión Logística, GLMNet) donde la escala de las variables influye en los coeficientes.
+-   **Versiones `_mi`**: Son variantes de los datasets anteriores donde se ha aplicado una selección de características basada en Información Mutua (Mutual Information) para reducir la dimensionalidad y eliminar ruido.
 
 ```{r}
 df_factors <- read.csv("./data/student_depression_factors.csv", stringsAsFactors = TRUE)
@@ -145,15 +154,15 @@ global_control <- trainControl(
 )
 ```
 
-### 2.2. Definición de Grids de Hiperparámetros
+### 2.2. Definición de grids de hiperparámetros
 
 Cada algoritmo de aprendizaje automático tiene parámetros internos (hiperparámetros) que no se aprenden de los datos, sino que deben ser configurados externamente. Para encontrar la mejor configuración, definimos una "rejilla" (grid) de valores posibles para cada modelo:
 
-*   **Árbol de Decisión (`rpart`)**: Ajustamos el parámetro de complejidad `cp`, que controla el tamaño del árbol y ayuda a prevenir el sobreajuste (pruning).
-*   **Random Forest (`rf`)**: Ajustamos `mtry`, que es el número de variables candidatas seleccionadas aleatoriamente en cada división de nodo.
-*   **GLMNet (`glmnet`)**: Probamos combinaciones de `alpha` (tipo de regularización: 0=Ridge, 1=Lasso) y `lambda` (intensidad de la regularización).
-*   **XGBoost (`xgbTree`)**: Ajustamos múltiples parámetros como el número de iteraciones (`nrounds`), profundidad máxima (`max_depth`), tasa de aprendizaje (`eta`), etc.
-*   **KNN (`knn`)**: Ajustamos `k`, el número de vecinos más cercanos a considerar para la clasificación.
+-   **Árbol de decisión (`rpart`)**: Ajustamos el parámetro de complejidad `cp`, que controla el tamaño del árbol y ayuda a prevenir el sobreajuste (pruning).
+-   **Random Forest (`rf`)**: Ajustamos `mtry`, que es el número de variables candidatas seleccionadas aleatoriamente en cada división de nodo.
+-   **GLMNet (`glmnet`)**: Probamos combinaciones de `alpha` (tipo de regularización: 0=Ridge, 1=Lasso) y `lambda` (intensidad de la regularización).
+-   **XGBoost (`xgbTree`)**: Ajustamos múltiples parámetros como el número de iteraciones (`nrounds`), profundidad máxima (`max_depth`), tasa de aprendizaje (`eta`), etc.
+-   **KNN (`knn`)**: Ajustamos `k`, el número de vecinos más cercanos a considerar para la clasificación.
 
 ```{r}
 # Árbol de decisión (profundidad controlada por cp)
@@ -191,18 +200,17 @@ grid_knn <- expand.grid(k = seq(5, 35, by = 2))
 
 Para evaluar la capacidad de generalización de nuestros modelos, es imprescindible separar los datos en dos conjuntos:
 
-1.  **Conjunto de Entrenamiento (Train)**: Utilizado para ajustar los parámetros del modelo.
-2.  **Conjunto de Prueba (Test)**: Datos "no vistos" por el modelo, utilizados exclusivamente para la evaluación final.
+1.  **Conjunto de entrenamiento (Train)**: Utilizado para ajustar los parámetros del modelo.
+2.  **Conjunto de prueba (Test)**: Datos "no vistos" por el modelo, utilizados exclusivamente para la evaluación final.
 
 Utilizaremos una **partición estratificada** basada en la variable objetivo `Depression`. Esto garantiza que la proporción de estudiantes con y sin depresión sea la misma en ambos conjuntos, evitando sesgos en la evaluación, especialmente si las clases estuvieran desbalanceadas.
-
 
 ### 3.1. Experimento: Impacto de la partición de datos (Train/Test Split)
 
 Una decisión fundamental en cualquier proyecto de Machine Learning es determinar qué proporción de datos destinar al entrenamiento y cuál a la evaluación.
 
-*   Si el conjunto de **train** es muy pequeño, el modelo no aprenderá patrones robustos (underfitting).
-*   Si el conjunto de **test** es muy pequeño, la estimación del error será poco fiable y tendrá mucha varianza.
+-   Si el conjunto de **train** es muy pequeño, el modelo no aprenderá patrones robustos (underfitting).
+-   Si el conjunto de **test** es muy pequeño, la estimación del error será poco fiable y tendrá mucha varianza.
 
 Para analizar empíricamente cuál es la mejor estrategia para nuestro dataset, realizamos un experimento comparando tres particiones comunes: **70/30**, **75/25** y **80/20**. Utilizaremos un modelo de Regresión Logística (GLM) como base para comparar el AUC obtenido en el conjunto de test para cada configuración.
 
@@ -266,11 +274,11 @@ standard_mi_test  <- df_standard_mi[-train_index, ]
 
 En esta sección procedemos a entrenar los distintos algoritmos definidos. Para cada uno, `caret` ejecutará la validación cruzada sobre el grid de hiperparámetros especificado y seleccionará automáticamente el modelo óptimo.
 
-### 4.1. Modelos basados en Árboles
+### 4.1. Modelos basados en árboles
 
 Estos modelos son capaces de capturar relaciones no lineales y son muy interpretables (especialmente el árbol simple). Utilizaremos el dataset `factors_train` ya que manejan nativamente las variables categóricas.
 
-#### 4.1.1. Árbol de Decisión (CART)
+#### 4.1.1. Árbol de decisión (CART)
 
 El árbol de decisión divide recursivamente el espacio de predictores en regiones rectangulares, buscando en cada paso la variable que mejor separa las clases.
 
@@ -303,7 +311,6 @@ rpart.plot(model_tree_factors$finalModel,
 
 El Random Forest suele ofrecer mejor rendimiento que un árbol de decisión simple al promediar múltiples árboles (bagging) y descorrelacionarlos (selección aleatoria de variables).
 
-
 ```{r}
 set.seed(123)
 
@@ -319,7 +326,7 @@ model_rf_factors <- train(
 model_rf_factors
 ```
 
-### 4.2. Modelos Lineales
+### 4.2. Modelos lineales
 
 Los modelos lineales asumen que existe una relación directa y proporcional entre las variables predictoras y la probabilidad de que ocurra el evento de interés (en este caso, tener depresión). Son muy eficientes y estables, pero requieren que los datos estén estandarizados para que los coeficientes sean comparables y la regularización funcione correctamente.
 
@@ -385,7 +392,7 @@ model_glmnet_std_mi <- train(
 )
 ```
 
-### 4.3. Modelos basados en Distancias y Boosting
+### 4.3. Modelos basados en distancias y boosting
 
 Para estos modelos utilizamos los datos escalados con Min-Max (`minmax_train`), ya que KNN es sensible a la escala de las distancias y XGBoost suele beneficiarse de rangos numéricos acotados.
 
@@ -488,13 +495,13 @@ Una vez seleccionados y entrenados los mejores modelos mediante validación cruz
 
 Para ello, calcularemos un conjunto completo de métricas que nos darán una visión holística del comportamiento del clasificador:
 
-*   **Accuracy (Exactitud)**: Proporción total de predicciones correctas.
-*   **Kappa**: Medida de concordancia que ajusta el accuracy por la probabilidad de acierto al azar.
-*   **Sensitivity (Sensibilidad / Recall)**: Capacidad del modelo para detectar correctamente los casos positivos (Estudiantes con depresión). $TP / (TP + FN)$.
-*   **Specificity (Especificidad)**: Capacidad para identificar correctamente los casos negativos (Estudiantes sin depresión). $TN / (TN + FP)$.
-*   **Precision (Precisión)**: De los casos que el modelo predijo como positivos, ¿cuántos lo eran realmente? $TP / (TP + FP)$.
-*   **F1 Score**: Media armónica entre Precisión y Sensibilidad. Es una métrica balanceada muy útil.
-*   **AUC (Area Under the Curve)**: Mide la capacidad del modelo para distinguir entre clases a través de distintos umbrales de decisión.
+-   **Accuracy (Exactitud)**: Proporción total de predicciones correctas.
+-   **Kappa**: Medida de concordancia que ajusta el accuracy por la probabilidad de acierto al azar.
+-   **Sensitivity (Sensibilidad / Recall)**: Capacidad del modelo para detectar correctamente los casos positivos (Estudiantes con depresión). $TP / (TP + FN)$.
+-   **Specificity (Especificidad)**: Capacidad para identificar correctamente los casos negativos (Estudiantes sin depresión). $TN / (TN + FP)$.
+-   **Precision (Precisión)**: De los casos que el modelo predijo como positivos, ¿cuántos lo eran realmente? $TP / (TP + FP)$.
+-   **F1 Score**: Media armónica entre Precisión y Sensibilidad. Es una métrica balanceada muy útil.
+-   **AUC (Area Under the Curve)**: Mide la capacidad del modelo para distinguir entre clases a través de distintos umbrales de decisión.
 
 ### 6.1. Función auxiliar de evaluación
 
@@ -565,7 +572,6 @@ res_tree_factors <- eval_model(
 ```
 
 Random Forest (datos con factores)
-
 
 ```{r}
 res_rf_factors <- eval_model(
@@ -718,6 +724,194 @@ Curva ROC del mejor modelo
 plot(best_res$roc, main = paste("Curva ROC en test -", best_model_name))
 ```
 
+## 9. Explicabilidad del mejor modelo mediante SHAP
+
+Hasta ahora hemos comparado los modelos únicamente a través de métricas globales (AUC, Accuracy, F1, etc.). Sin embargo, para un problema sensible como la depresión estudiantil también es importante entender **por qué** un modelo toma ciertas decisiones.
+
+Para ello vamos a utilizar **SHAP (SHapley Additive exPlanations)**, una familia de métodos basada en los valores de Shapley de la teoría de juegos cooperativos. Intuitivamente:
+
+-   Cada predicción del modelo se ve como el resultado de un “juego”.
+-   Cada variable de entrada es un “jugador”.
+-   El valor SHAP de una variable mide cuánto contribuye (positiva o negativamente) a desplazar la predicción desde un valor base (p. ej. la probabilidad media de depresión) hasta la predicción concreta para un estudiante.
+
+Ventajas de SHAP:
+
+-   Funciona con **cualquier tipo de modelo** (árboles, modelos lineales, KNN, XGBoost…).
+-   Permite explicaciones **locales** (a nivel de estudiante) y **globales** (qué variables son más importantes de media).
+-   Las gráficas SHAP son estándar en explicabilidad: *bar plot* y *summary* / *beeswarm plot*.
+
+En nuestro caso vamos a aplicar SHAP al mejor modelo en test según la métrica AUC (calculado en la sección anterior como best_model_name).
+
+### 9.1. Cálculo de valores SHAP para el mejor modelo
+
+Usaremos:
+
+-   *fastshap*: para calcular los valores SHAP.
+-   *shapviz*: para generar las gráficas estándar de SHAP.
+
+Primero, recuperamos el objeto del mejor modelo y los datos de entrada (sin la variable `Depression`) que le corresponden. No reentrenamos nada, solo reutilizamos lo que ya está en memoria.
+
+```{r}
+# Función auxiliar: devuelve modelo y datos según best_model_name
+
+get_model_and_data <- function(model_name) {
+  switch(model_name,
+    "Tree_Factores" = list(
+      model = model_tree_factors,
+      X_train = subset(factors_train, select = -Depression),
+      X_test = subset(factors_test, select = -Depression)
+    ),
+    "Random_Forest" = list(
+      model = model_rf_factors,
+      X_train = subset(factors_train, select = -Depression),
+      X_test = subset(factors_test, select = -Depression)
+    ),
+    "GLM_Std" = list(
+      model = model_glm_std,
+      X_train = subset(standard_train, select = -Depression),
+      X_test = subset(standard_test, select = -Depression)
+    ),
+    "GLM_Std_MI" = list(
+      model = model_glm_std_mi,
+      X_train = subset(standard_mi_train, select = -Depression),
+      X_test = subset(standard_mi_test, select = -Depression)
+    ),
+    "GLMNet_Std" = list(
+      model = model_glmnet_std,
+      X_train = subset(standard_train, select = -Depression),
+      X_test = subset(standard_test, select = -Depression)
+    ),
+    "GLMNet_Std_MI" = list(
+      model = model_glmnet_std_mi,
+      X_train = subset(standard_mi_train, select = -Depression),
+      X_test = subset(standard_mi_test, select = -Depression)
+    ),
+    "XGB_MinMax" = list(
+      model = model_xgb_minmax,
+      X_train = subset(minmax_train, select = -Depression),
+      X_test = subset(minmax_test, select = -Depression)
+    ),
+    "XGB_MinMax_MI" = list(
+      model = model_xgb_minmax_mi,
+      X_train = subset(minmax_mi_train, select = -Depression),
+      X_test = subset(minmax_mi_test, select = -Depression)
+    ),
+    "KNN_MinMax" = list(
+      model = model_knn_minmax,
+      X_train = subset(minmax_train, select = -Depression),
+      X_test = subset(minmax_test, select = -Depression)
+    ),
+    "KNN_MinMax_MI" = list(
+      model = model_knn_minmax_mi,
+      X_train = subset(minmax_mi_train, select = -Depression),
+      X_test = subset(minmax_mi_test, select = -Depression)
+    ),
+    stop("Modelo no reconocido: ", model_name)
+  )
+}
+```
+
+```{r}
+# Recuperamos el mejor modelo y sus datos asociados (ya existentes)
+
+best_info <- get_model_and_data(best_model_name)
+best_model <- best_info$model
+X_train <- best_info$X_train
+X_test <- best_info$X_test
+```
+
+Para SHAP necesitamos:
+
+-   Un conjunto de **background** (muestras de entrenamiento) para estimar el valor base.
+-   Un conjunto de observaciones que queremos **explicar** (usaremos parte del test).
+
+```{r}
+set.seed(123)
+
+# Limitamos el tamaño para que el cálculo sea razonable
+n_bg <- min(2000, nrow(X_train)) # background
+n_explain <- min(1000, nrow(X_test)) # puntos a explicar
+
+idx_bg <- sample(seq_len(nrow(X_train)), n_bg)
+idx_explain <- sample(seq_len(nrow(X_test)), n_explain)
+
+X_bg <- X_train[idx_bg, ]
+X_exp <- X_test[idx_explain, ]
+```
+
+Definimos ahora una función de predicción que devuelve la probabilidad de la clase positiva `Yes`, como espera `fastshap`, y calculamos los valores SHAP:
+
+```{r}
+pred_fun_yes <- function(object, newdata) {
+  predict(object, newdata = newdata, type = "prob")[, "Yes"]
+}
+
+# Cálculo de valores SHAP para el mejor modelo
+set.seed(123)
+
+shap_values <- fastshap::explain(
+  object       = best_model,
+  X            = X_bg,
+  newdata      = X_exp,
+  pred_wrapper = pred_fun_yes,
+  nsim         = 50,    # nº de muestras MC (compromiso precisión/tiempo)
+)
+
+# Objeto shapviz para facilitar las gráficas
+sv <- shapviz::shapviz(shap_values, X = X_exp)
+```
+
+### 9.2. Importancia global de variables
+
+#### 9.2.1. Bar plot de importancia SHAP
+
+La gráfica de **importancia global SHAP** muestra cuánto contribuye cada variable, en promedio, a las predicciones del modelo XGB_MinMax_MI. Una mayor magnitud del valor SHAP implica que la variable tiene más peso en la decisión del modelo.
+
+```{r}
+sv_importance(
+  sv,
+  kind = "bar",
+) + ggplot2::ggtitle(paste("Importancia global SHAP -", best_model_name))
+```
+
+En este caso, las tres variables más influyentes son:
+
+-   **Had.suicidal.thoughts**
+-   **Academic.Pressure**
+-   **Financial.Stress**
+
+Estas variables presentan diferencias muy marcadas respecto al resto, lo que indica que el modelo considera que son los factores que más modifican la probabilidad de que un estudiante presente depresión. Especialmente relevante es la primera, cuya contribución media supera ampliamente al resto, lo que sugiere que es un indicador fuertemente asociado al estado emocional del estudiante dentro del dataset.
+
+Otras variables como **Age**, **Dietary.Habits**, **Work.Study.Hours**, **Study.Satisfaction** o **Sleep.Duration** también influyen, pero con un impacto considerablemente menor. En cambio, factores como **Degree**, **Family.History.Mental.Illness** o **CGPA** apenas alteran la predicción, lo que indica que tienen poca relevancia para el modelo en este contexto específico.
+
+#### 9.2.2. Summary / beeswarm plot
+
+El **beeswarm plot de SHAP** ofrece una visión más rica que el barplot, ya que muestra cómo influyen los valores individuales de cada variable en las predicciones del modelo.
+
+Cada punto representa a un estudiante:
+
+-   La posición horizontal indica si ese estudiante aumenta o reduce la probabilidad estimada de depresión.
+-   El color muestra si el valor de la variable es alto (amarillo) o bajo (morado).
+
+```{r}
+sv_importance(
+  sv,
+  kind = "beeswarm",
+) + ggplot2::ggtitle(paste("Resumen SHAP (beeswarm) -", best_model_name))
+```
+
+Interpretación principal:
+
+- En **Had.suicidal.thoughts**, los valores altos (amarillo) empujan las predicciones muy claramente hacia valores SHAP positivos, es decir, incrementan mucho la probabilidad estimada de depresión.
+- En **Academic.Pressure** y **Financial.Stress**, también se observa que valores altos están asociados sistemáticamente con incrementos de riesgo.
+- En variables como **Study.Satisfaction** o **Sleep.Duration**, ocurre lo contrario: los valores altos suelen desplazar la predicción hacia valores SHAP negativos, lo que implica un efecto protector.
+- Las variables menos relevantes (**Degree**, **CGPA**…) muestran nubes más pequeñas y centradas en cero, lo que indica que apenas modifican la predicción independientemente de su valor.
+
+Este gráfico permite entender no solo qué variables son importantes, sino cómo y en qué dirección afectan al riesgo estimado por el modelo, proporcionando una visión rica y explicativa del comportamiento interno del clasificador.
+
+## 10. Conclusiones
+
+Añadir conclusiones
 
 ```{r}
 # ==============================================================================

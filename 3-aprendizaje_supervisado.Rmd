@@ -44,37 +44,67 @@ En este cuaderno vamos a:
 
 El objetivo final es proporcionar una visión completa de la capacidad predictiva del dataset y del rol que juegan los distintos factores asociados a la depresión en estudiantes.
 
-En primer lugar vamos a cargar las librerías:
+
+Antes de comenzar con el análisis, cargamos las librerías necesarias. Utilizaremos `caret` como framework principal para el entrenamiento y evaluación de modelos, `dplyr` y `tidyr` para la manipulación de datos, `ggplot2` para la visualización y paquetes específicos para cada algoritmo (`rpart`, `glmnet`, `xgboost`, `randomForest`). También emplearemos `doParallel` para acelerar el cómputo aprovechando los múltiples núcleos del procesador.
 
 ```{r}
-#install.packages(caret)
+# install.packages('caret')
 library(caret)
 
-#install.packages(dplyr)
+# install.packages('dplyr')
 library(dplyr)
 
-#install.packages(ggplot2)
+# install.packages('ggplot2')
 library(ggplot2)
 
-#install.packages(tidyr)
+# install.packages('tidyr')
 library(tidyr)
 
-#install.packages(rpart.plot)
+# install.packages('rpart.plot')
 library(rpart.plot)
 
-#install.packages(glmnet)
+# install.packages('glmnet')
 library(glmnet)
 
-#install.packages(xgboost)
+# install.packages('xgboost')
 library(xgboost)
 
-#install.packages(pROC)
+# install.packages('pROC')
 library(pROC)
+
+# install.packages("doParallel")
+library(doParallel)
+```
+
+```{r}
+# ==============================================================================
+# BLOQUE DE OPTIMIZACIÓN: PARALELIZACIÓN CON CPU (Intel Ultra 9)
+# ==============================================================================
+
+# 1. Detectar núcleos: Tu procesador tiene muchos, vamos a usarlos.
+# logical=FALSE intenta usar núcleos físicos para mayor estabilidad.
+total_cores <- parallel::detectCores(logical = FALSE)
+
+# 2. Crear Cluster: Dejamos 2 núcleos libres para que Windows/VS Code no se bloqueen.
+# Si tienes 16 núcleos, usará 14 para R.
+n_cores_uso <- max(1, total_cores - 2) 
+cl <- makePSOCKcluster(n_cores_uso)
+
+# 3. Registrar el cluster para que 'caret' lo vea automáticamente
+registerDoParallel(cl)
+
+message(paste("🚀 MODO TURBO ACTIVADO: Entrenando modelos usando", n_cores_uso, "núcleos en paralelo."))
+message("Nota: Abre el Administrador de Tareas para ver tu CPU al 100% durante el entrenamiento.")
 ```
 
 ## 1. Lectura de datasets
 
-Leemos los ficheros generados en el cuaderno de preprocesamiento.
+En la fase de preprocesamiento generamos distintas versiones del dataset para adaptarnos a los requerimientos de los diferentes algoritmos de aprendizaje automático. A continuación, cargamos estos ficheros:
+
+*   **`df_factors`**: Contiene variables categóricas y numéricas sin escalar. Es la versión ideal para modelos basados en árboles (Árboles de Decisión, Random Forest), que no requieren normalización y manejan bien las categorías.
+*   **`df_minmax`**: Versión con variables numéricas escaladas al rango [0, 1]. Este formato es preferible para algoritmos basados en distancias (como KNN) y redes neuronales, y suele funcionar bien con XGBoost.
+*   **`df_standard`**: Versión con variables estandarizadas (media 0, varianza 1). Es fundamental para modelos lineales (Regresión Logística, GLMNet) donde la escala de las variables influye en los coeficientes.
+*   **Versiones `_mi`**: Son variantes de los datasets anteriores donde se ha aplicado una selección de características basada en Información Mutua (Mutual Information) para reducir la dimensionalidad y eliminar ruido.
 
 ```{r}
 df_factors <- read.csv("./data/student_depression_factors.csv", stringsAsFactors = TRUE)
@@ -93,37 +123,15 @@ df_standard_mi <- read.csv("./data/student_depression_numeric_standard_mi.csv")
 head(df_standard_mi)
 ```
 
-## 2. Separación en conjunto de train y test
+## 2. Esquema de validación y grids de hiperparámetros
 
-Para poder comparar de forma justa todos los modelos y tipos de datos, utilizamos la misma partición estratificada (80% train, 20% test) basada en la variable `Depression.`
+### 2.1. Control de entrenamiento (Cross-Validation)
 
-```{r}
-set.seed(123)
+Para estimar el rendimiento de los modelos durante la fase de entrenamiento y seleccionar los mejores hiperparámetros, utilizaremos **Validación Cruzada con k-iteraciones (k-Fold Cross-Validation)**, concretamente con $k=10$.
 
-train_index <- createDataPartition(df_factors$Depression, p = 0.8, list = FALSE)
+Este método divide el conjunto de entrenamiento en 10 partes (folds). El modelo se entrena en 9 partes y se valida en la restante, repitiendo el proceso 10 veces. El resultado final es el promedio de las métricas obtenidas.
 
-# Dataset con factores (para árboles)
-factors_train <- df_factors[train_index, ]
-factors_test  <- df_factors[-train_index, ]
-
-# Datasets numéricos Min–Max
-minmax_train    <- df_minmax[train_index, ]
-minmax_test     <- df_minmax[-train_index, ]
-
-minmax_mi_train <- df_minmax_mi[train_index, ]
-minmax_mi_test  <- df_minmax_mi[-train_index, ]
-
-# Datasets numéricos estándar
-standard_train    <- df_standard[train_index, ]
-standard_test     <- df_standard[-train_index, ]
-
-standard_mi_train <- df_standard_mi[train_index, ]
-standard_mi_test  <- df_standard_mi[-train_index, ]
-```
-
-## 3. Esquema de validación y grids de hiperparámetros
-
-### 3.1. Control de entrenamiento (10-fold CV, métrica ROC)
+Como métrica principal para la optimización utilizaremos el **Área Bajo la Curva ROC (AUC)**, que es más robusta que la precisión (accuracy) cuando existen desequilibrios de clase o cuando nos interesa evaluar la capacidad del modelo para ordenar correctamente las probabilidades de las clases.
 
 ```{r}
 set.seed(123)
@@ -137,11 +145,24 @@ global_control <- trainControl(
 )
 ```
 
-### 3.2. Grids de hiperparámetros
+### 2.2. Definición de Grids de Hiperparámetros
+
+Cada algoritmo de aprendizaje automático tiene parámetros internos (hiperparámetros) que no se aprenden de los datos, sino que deben ser configurados externamente. Para encontrar la mejor configuración, definimos una "rejilla" (grid) de valores posibles para cada modelo:
+
+*   **Árbol de Decisión (`rpart`)**: Ajustamos el parámetro de complejidad `cp`, que controla el tamaño del árbol y ayuda a prevenir el sobreajuste (pruning).
+*   **Random Forest (`rf`)**: Ajustamos `mtry`, que es el número de variables candidatas seleccionadas aleatoriamente en cada división de nodo.
+*   **GLMNet (`glmnet`)**: Probamos combinaciones de `alpha` (tipo de regularización: 0=Ridge, 1=Lasso) y `lambda` (intensidad de la regularización).
+*   **XGBoost (`xgbTree`)**: Ajustamos múltiples parámetros como el número de iteraciones (`nrounds`), profundidad máxima (`max_depth`), tasa de aprendizaje (`eta`), etc.
+*   **KNN (`knn`)**: Ajustamos `k`, el número de vecinos más cercanos a considerar para la clasificación.
 
 ```{r}
 # Árbol de decisión (profundidad controlada por cp)
 grid_tree <- expand.grid(cp = seq(0.001, 0.05, by = 0.002))
+
+# Random Forest
+# mtry: número de variables seleccionadas aleatoriamente en cada split
+# Generalmente sqrt(ncol(x)) es un buen valor por defecto.
+grid_rf <- expand.grid(mtry = c(2, 5, 8, 11, 15))
 
 # GLM (regresión logística): sin grid específico, caret ajusta el modelo base
 
@@ -166,11 +187,92 @@ grid_xgb <- expand.grid(
 grid_knn <- expand.grid(k = seq(5, 35, by = 2))
 ```
 
+## 3. Separación en conjunto de train y test
+
+Para evaluar la capacidad de generalización de nuestros modelos, es imprescindible separar los datos en dos conjuntos:
+
+1.  **Conjunto de Entrenamiento (Train)**: Utilizado para ajustar los parámetros del modelo.
+2.  **Conjunto de Prueba (Test)**: Datos "no vistos" por el modelo, utilizados exclusivamente para la evaluación final.
+
+Utilizaremos una **partición estratificada** basada en la variable objetivo `Depression`. Esto garantiza que la proporción de estudiantes con y sin depresión sea la misma en ambos conjuntos, evitando sesgos en la evaluación, especialmente si las clases estuvieran desbalanceadas.
+
+
+### 3.1. Experimento: Impacto de la partición de datos (Train/Test Split)
+
+Una decisión fundamental en cualquier proyecto de Machine Learning es determinar qué proporción de datos destinar al entrenamiento y cuál a la evaluación.
+
+*   Si el conjunto de **train** es muy pequeño, el modelo no aprenderá patrones robustos (underfitting).
+*   Si el conjunto de **test** es muy pequeño, la estimación del error será poco fiable y tendrá mucha varianza.
+
+Para analizar empíricamente cuál es la mejor estrategia para nuestro dataset, realizamos un experimento comparando tres particiones comunes: **70/30**, **75/25** y **80/20**. Utilizaremos un modelo de Regresión Logística (GLM) como base para comparar el AUC obtenido en el conjunto de test para cada configuración.
+
+```{r}
+# Función para probar una partición y un modelo rápido (ej. GLM)
+test_partition <- function(p_val) {
+  set.seed(123)
+  idx <- createDataPartition(df_standard$Depression, p = p_val, list = FALSE)
+  tr  <- df_standard[idx, ]
+  ts  <- df_standard[-idx, ]
+  
+  mod <- train(Depression ~ ., data = tr, method = "glm", family = "binomial", trControl = global_control, metric = "ROC")
+  
+  # Evaluar en test
+  pred_prob <- predict(mod, newdata = ts, type = "prob")[, "Yes"]
+  roc_obj   <- roc(ts$Depression, pred_prob, levels = c("No", "Yes"), quiet=TRUE)
+  as.numeric(auc(roc_obj))
+}
+
+partitions <- c(0.7, 0.75, 0.8)
+results_part <- sapply(partitions, test_partition)
+names(results_part) <- paste0(partitions*100, "/", (1-partitions)*100)
+
+print("AUC en test según partición (Modelo GLM):")
+print(results_part)
+```
+
+### 3.2. Elección de la mejor partición
+
+Definimos una proporción de **70% para entrenamiento** y **30% para test**, una configuración estándar en ciencia de datos.
+
+```{r}
+set.seed(123)
+
+# Definimos la proporción de train. 
+# Valores comunes: 0.8 (80/20), 0.75 (75/25), 0.7 (70/30).
+split_p <- 0.7
+
+train_index <- createDataPartition(df_factors$Depression, p = split_p, list = FALSE)
+
+# Dataset con factores (para árboles)
+factors_train <- df_factors[train_index, ]
+factors_test  <- df_factors[-train_index, ]
+
+# Datasets numéricos Min–Max
+minmax_train    <- df_minmax[train_index, ]
+minmax_test     <- df_minmax[-train_index, ]
+
+minmax_mi_train <- df_minmax_mi[train_index, ]
+minmax_mi_test  <- df_minmax_mi[-train_index, ]
+
+# Datasets numéricos estándar
+standard_train    <- df_standard[train_index, ]
+standard_test     <- df_standard[-train_index, ]
+
+standard_mi_train <- df_standard_mi[train_index, ]
+standard_mi_test  <- df_standard_mi[-train_index, ]
+```
+
 ## 4. Entrenamiento de modelos
 
-### 4.1. Árbol de decisión con variables categóricas
+En esta sección procedemos a entrenar los distintos algoritmos definidos. Para cada uno, `caret` ejecutará la validación cruzada sobre el grid de hiperparámetros especificado y seleccionará automáticamente el modelo óptimo.
 
-Usamos el dataset `factors_train`, donde se conservan las variables categóricas y no se realiza escalado numérico (adecuado para árboles).
+### 4.1. Modelos basados en Árboles
+
+Estos modelos son capaces de capturar relaciones no lineales y son muy interpretables (especialmente el árbol simple). Utilizaremos el dataset `factors_train` ya que manejan nativamente las variables categóricas.
+
+#### 4.1.1. Árbol de Decisión (CART)
+
+El árbol de decisión divide recursivamente el espacio de predictores en regiones rectangulares, buscando en cada paso la variable que mejor separa las clases.
 
 ```{r}
 set.seed(123)
@@ -197,11 +299,35 @@ rpart.plot(model_tree_factors$finalModel,
 )
 ```
 
-### 4.2. Modelos lineales con datos estandarizados
+### 4.1.2. Random Forest
 
-Utilizamos los datasets standard_train y standard_mi_train (con y sin reducción de variables por MI).
+El Random Forest suele ofrecer mejor rendimiento que un árbol de decisión simple al promediar múltiples árboles (bagging) y descorrelacionarlos (selección aleatoria de variables).
 
-#### 4.2.1. Regresión logística (GLM)
+
+```{r}
+set.seed(123)
+
+model_rf_factors <- train(
+  Depression ~ .,
+  data      = factors_train,
+  method    = "rf",
+  trControl = global_control,
+  tuneGrid  = grid_rf,
+  metric    = "ROC"
+)
+
+model_rf_factors
+```
+
+### 4.2. Modelos Lineales
+
+Los modelos lineales asumen que existe una relación directa y proporcional entre las variables predictoras y la probabilidad de que ocurra el evento de interés (en este caso, tener depresión). Son muy eficientes y estables, pero requieren que los datos estén estandarizados para que los coeficientes sean comparables y la regularización funcione correctamente.
+
+Utilizaremos los datasets `standard_train` y `standard_mi_train`.
+
+#### 4.2.1. Regresión Logística (GLM)
+
+Es el modelo base para clasificación binaria. No tiene hiperparámetros complejos de ajuste (más allá de la selección de variables), por lo que sirve como una excelente línea base (baseline).
 
 ```{r}
 set.seed(123)
@@ -229,7 +355,9 @@ model_glm_std_mi <- train(
 )
 ```
 
-#### 4.2.2. Regresión regularizada (GLMNet)
+#### 4.2.2. Regresión Regularizada (GLMNet)
+
+GLMNet combina la regresión logística con técnicas de regularización (Lasso y Ridge). La regularización penaliza los coeficientes grandes, lo que ayuda a reducir la varianza del modelo, evitar el sobreajuste y realizar selección automática de variables (en el caso de Lasso).
 
 ```{r}
 set.seed(123)
@@ -257,11 +385,13 @@ model_glmnet_std_mi <- train(
 )
 ```
 
-### 4.3. XGBoost y KNN con datos Min–Max
+### 4.3. Modelos basados en Distancias y Boosting
 
-Para modelos muy sensibles a la escala (KNN) o que suelen trabajar bien con variables numéricas en el rango [0,1] (XGBoost en este contexto), usamos `minmax_train` y su versión reducida `minmax_mi_train`.
+Para estos modelos utilizamos los datos escalados con Min-Max (`minmax_train`), ya que KNN es sensible a la escala de las distancias y XGBoost suele beneficiarse de rangos numéricos acotados.
 
-#### 4.3.1. XGBoost
+#### 4.3.1. XGBoost (Extreme Gradient Boosting)
+
+XGBoost es una técnica de ensamblaje avanzada que construye modelos secuencialmente. Cada nuevo modelo intenta corregir los errores de los anteriores. Es uno de los algoritmos más potentes en la actualidad para datos tabulares.
 
 ```{r}
 set.seed(123)
@@ -289,7 +419,9 @@ model_xgb_minmax_mi <- train(
 )
 ```
 
-#### 4.3.2. KNN
+#### 4.3.2. K-Nearest Neighbors (KNN)
+
+KNN es un algoritmo simple pero efectivo que clasifica una nueva instancia basándose en la clase mayoritaria de sus $k$ vecinos más cercanos en el espacio de características. Al basarse en distancias euclídeas, es crucial que todas las variables tengan la misma escala.
 
 ```{r}
 set.seed(123)
@@ -324,6 +456,7 @@ Agrupamos todos los modelos y comparamos sus resultados de CV usando la métrica
 ```{r}
 model_list <- list(
   Tree_Factores      = model_tree_factors,
+  Random_Forest      = model_rf_factors,
   GLM_Std            = model_glm_std,
   GLM_Std_MI         = model_glm_std_mi,
   GLMNet_Std         = model_glmnet_std,
@@ -351,9 +484,21 @@ dotplot(resamples_models, metric = "ROC", main = "Media de ROC por modelo (CV)")
 
 ## 6. Evaluación de rendimiento en el conjunto de test
 
-En esta sección nos centramos en los datos no vistos (test). Usaremos las métricas: Accuracy, Kappa, Precision, Sensitivity (Recall), Specificity, F1 y AUC de la curva ROC.
+Una vez seleccionados y entrenados los mejores modelos mediante validación cruzada, el paso crítico es evaluar su rendimiento real sobre el conjunto de **test** (datos que nunca han visto).
+
+Para ello, calcularemos un conjunto completo de métricas que nos darán una visión holística del comportamiento del clasificador:
+
+*   **Accuracy (Exactitud)**: Proporción total de predicciones correctas.
+*   **Kappa**: Medida de concordancia que ajusta el accuracy por la probabilidad de acierto al azar.
+*   **Sensitivity (Sensibilidad / Recall)**: Capacidad del modelo para detectar correctamente los casos positivos (Estudiantes con depresión). $TP / (TP + FN)$.
+*   **Specificity (Especificidad)**: Capacidad para identificar correctamente los casos negativos (Estudiantes sin depresión). $TN / (TN + FP)$.
+*   **Precision (Precisión)**: De los casos que el modelo predijo como positivos, ¿cuántos lo eran realmente? $TP / (TP + FP)$.
+*   **F1 Score**: Media armónica entre Precisión y Sensibilidad. Es una métrica balanceada muy útil.
+*   **AUC (Area Under the Curve)**: Mide la capacidad del modelo para distinguir entre clases a través de distintos umbrales de decisión.
 
 ### 6.1. Función auxiliar de evaluación
+
+Definimos una función que automatiza el cálculo de todas estas métricas y genera la matriz de confusión y la curva ROC.
 
 ```{r}
 eval_model <- function(model, newdata, y_true, positive = "Yes") {
@@ -414,6 +559,17 @@ eval_model <- function(model, newdata, y_true, positive = "Yes") {
 ```{r}
 res_tree_factors <- eval_model(
   model_tree_factors,
+  newdata = factors_test,
+  y_true = factors_test$Depression
+)
+```
+
+Random Forest (datos con factores)
+
+
+```{r}
+res_rf_factors <- eval_model(
+  model_rf_factors,
   newdata = factors_test,
   y_true = factors_test$Depression
 )
@@ -484,6 +640,7 @@ Unimos todas las métricas en una sola tabla para facilitar la comparación.
 ```{r}
 metrics_test <- bind_rows(
   Tree_Factores      = res_tree_factors$metrics,
+  Random_Forest      = res_rf_factors$metrics,
   GLM_Std            = res_glm_std$metrics,
   GLM_Std_MI         = res_glm_std_mi$metrics,
   GLMNet_Std         = res_glmnet_std$metrics,
@@ -537,6 +694,7 @@ best_model_name
 best_res <- switch(
   best_model_name,
   "Tree_Factores" = res_tree_factors,
+  "Random_Forest" = res_rf_factors,
   "GLM_Std" = res_glm_std,
   "GLM_Std_MI" = res_glm_std_mi,
   "GLMNet_Std" = res_glmnet_std,
@@ -560,19 +718,15 @@ Curva ROC del mejor modelo
 plot(best_res$roc, main = paste("Curva ROC en test -", best_model_name))
 ```
 
-```{r}
-
-```
 
 ```{r}
+# ==============================================================================
+# FINALIZAR OPTIMIZACIÓN
+# ==============================================================================
 
+# Paramos el cluster y volvemos a modo secuencial para liberar memoria
+stopCluster(cl)
+registerDoSEQ()
+
+message("🛑 Procesos paralelos detenidos y memoria liberada.")
 ```
-
-```{r}
-
-```
-
-```{r}
-
-```
-

@@ -13,7 +13,7 @@ output:
 
 En este documento abordamos la **caracterización clínica** de los perfiles de riesgo en la población estudiantil.
 
-Retomando las conclusiones de la fase previa, hemos establecido matemáticamente que la estructura subyacente del dataset maximiza su cohesón interna usando una partición de $k=3$ grupos. Este descubrimiento no es una asunción a priori, sino una conclusión validada mediante pruebas de estrés de silueta y análisis de estabilidad estructural.
+Retomando las conclusiones de la fase previa, hemos establecido matemáticamente que la estructura subyacente del dataset maximiza su **cohesión** interna usando una partición de $k=3$ grupos. Este descubrimiento no es una asunción a priori, sino una conclusión validada mediante pruebas de estrés de silueta y análisis de estabilidad estructural.
 
 Partiendo de esta premisa, el presente análisis se centra en dos objetivos metodológicos de alto rigor:
 
@@ -38,7 +38,7 @@ A continuación, procedemos con la configuración del entorno y la carga de libr
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
-required_packages <- c("tidyverse", "cluster", "factoextra", "knitr", "gridExtra")
+required_packages <- c("tidyverse", "cluster", "factoextra", "knitr", "gridExtra", "arules", "arulesViz", "dplyr", "stringr", "kableExtra")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 
@@ -47,6 +47,10 @@ library(cluster)
 library(factoextra)
 library(knitr)
 library(gridExtra)
+library(arules)
+library(arulesViz)
+library(stringr)
+library(kableExtra)
 ```
 
 Procedemos a cargar el dataset optimizado resultante de la fase anterior. Este archivo contiene exclusivamente las variables seleccionadas por Información Mutua (MI), eliminando el ruido que dificultaba la convergencia en etapas previas.
@@ -63,7 +67,7 @@ head(student_data_clustering_mi)
 
 # K-Medoides (CLARA)
 
-## Preapración de los datos
+## Preparación de los datos
 
 Para garantizar la integridad del análisis no supervisado y evitar cualquier sesgo de información, es necesario excluir la variable objetivo `Depression`. Nuestro objetivo es descubrir patrones basados únicamente en las características intrínsecas de los estudiantes, sin la influencia de la etiqueta diagnóstica conocida.
 
@@ -100,7 +104,7 @@ fviz_cluster(clara_model,
              ellipse.type = "convex", 
              ggtheme = theme_minimal(),
              main = "Cluster Plot: K-Medoids (CLARA, k=3)",
-             palette = c("#2E9FDF", "#00AFBB", "#E7B800"))
+             palette = c("#F39C12", "#27AE60", "#C0392B"))
 ```
 
 # Caracterización de Perfiles mediante Snake Plot
@@ -127,7 +131,7 @@ data_long <- data_perfilado %>%
 
 ## Generación del Gráfico
 
-A continuación, generamos el gráfico. La línea discontinua en 0 representa el promedio poblacional. Utilizaremos una paleta de colores específica para diferenciar claramente los niveles de riesgo: Azul (Cluster 1), Verde (Cluster 2) y Naranja (Cluster 3).
+A continuación, generamos el gráfico. La línea discontinua en 0 representa el promedio poblacional. Utilizaremos una paleta de colores semántica ("Semáforo de Riesgo") para diferenciar claramente los niveles de urgencia:
 
 ```{r}
 ggplot(data_long, aes(x = Variable, y = Valor_Medio_Estandarizado, 
@@ -135,7 +139,8 @@ ggplot(data_long, aes(x = Variable, y = Valor_Medio_Estandarizado,
   geom_line(size = 1.2) +
   geom_point(size = 3) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") + 
-  scale_color_manual(values = c("#0072B2", "#009E73", "#E69F00")) +
+  scale_color_manual(values = c("#F39C12", "#27AE60", "#C0392B"), 
+                     labels = c("Medium Risk", "Low Risk", "High Risk")) +
   labs(title = "Perfil Clínico de los Clusters (Snake Plot)",
        subtitle = "Z-Scores Promedio: Identificación de perfiles de riesgo",
        y = "Desviación del Promedio (Z-Score)",
@@ -146,17 +151,19 @@ ggplot(data_long, aes(x = Variable, y = Valor_Medio_Estandarizado,
 
 ## Análisis e interpretación de perfiles
 
-Tras generar el gráfico, podemos categorizar los clusters basándonos en la posición de las líneas (las variables discriminantes):
+Tras generar el gráfico, podemos categorizar los clusters basándonos en la posición de las líneas (las variables discriminantes) y su color asignado:
 
--   **Cluster 3 (Color Oro/Naranja)** $\rightarrow$ RIESGO ALTO: Se justifica su clasificación de alto riesgo debido a sus picos máximos en **Pensamientos Suicidas**, **Estrés Financiero** y **Presión Académica**, que se presentan junto con niveles mínimos en **Sueño** y **CGPA**. Esta combinación sugiere un perfil de estudiante bajo severa presión psicológica y problemas de rendimiento.
+-   **Cluster 3 (Rojo Intenso)** $\rightarrow$ **RIESGO ALTO (Peligro/Urgencia)**: Se justifica su clasificación de alto riesgo debido a sus picos máximos en **Pensamientos Suicidas**, **Estrés Financiero** y **Presión Académica**, que se presentan junto con niveles mínimos en **Sueño** y **CGPA**. Esta combinación sugiere un perfil de estudiante bajo severa presión psicológica y problemas de rendimiento.
 
--   **Cluster 2 (Color Verde)** $\rightarrow$ RIESGO BAJO: Este perfil actúa como un "espejo" del anterior. Se caracteriza por tener los valores máximos en **CGPA** y **Sueño**, y niveles mínimos en las variables asociadas al estrés. Representa al estudiante con mejor adaptación académica y bienestar.
+-   **Cluster 1 (Naranja/Ámbar)** $\rightarrow$ **RIESGO MEDIO (Alerta/Transición)**: Este grupo se presenta como un perfil de transición con valores intermedios. No es un grupo "sano", sino una zona de alerta que podría derivar en riesgo alto si los estresores aumentan.
 
--   **Cluster 1 (Color Azul)** $\rightarrow$ RIESGO MEDIO: Este grupo se presenta como un perfil de transición o promedio, con valores intermedios en la mayoría de las variables, indicando un nivel de riesgo moderado que no alcanza los extremos de los otros dos grupos.
+-   **Cluster 2 (Verde)** $\rightarrow$ **RIESGO BAJO (Salud/Resiliencia)**: Este perfil actúa como un "espejo" del anterior. Se caracteriza por tener los valores máximos en **CGPA** y **Sueño**, y niveles mínimos en las variables asociadas al estrés. Representa al estudiante con mejor adaptación académica y bienestar.
 
 # Validación externa
 
-Hemos clasificado a los estudiantes en 3 perfiles de riesgo (Bajo, Medio, Alto) usando K-sin que el algoritmo conociera su estado real de salud. Ahora, vamos a "quitar la venda" al modelo. Recuperaremos la variable Depression (que eliminamos temporalmente para el entrenamiento) y cruzaremos estos datos para verificar si nuestros clusters matemáticos coinciden con la realidad clínica.
+Una vez hemos detectado **quién** está en riesgo, el siguiente paso crítico es validar si nuestra "brújula matemática" apunta en la dirección correcta.
+
+Hemos clasificado a los estudiantes en 3 perfiles de riesgo (Bajo, Medio, Alto) usando K-Medoids sin que el algoritmo conociera su estado real de salud. Ahora, procedemos a **"quitar la venda"** al modelo. Recuperaremos la variable `Depression` (que eliminamos temporalmente para el entrenamiento) y cruzaremos estos datos para verificar si nuestros clusters matemáticos coinciden con la realidad clínica.
 
 ```{r}
 validation_df <- data_perfilado %>%
@@ -193,10 +200,161 @@ ggplot(validation_df, aes(x = Risk_Profile, fill = Real_Depression_Label)) +
   theme_minimal()
 ```
 
-## Interpretación de la validación
+## Interpretación de los resultados
 
-Si el Grupo de Riesgo Alto tiene una mayoría abrumadora de casos reales de depresión (1), el modelo es un éxito.
+La confrontación de los clusters con los diagnósticos reales (`Real_Depression_Label`) valida la capacidad predictiva del modelo y revela una estructura de riesgo polarizada:
 
-Si el Grupo de Riesgo Bajo tiene muy pocos casos de depresión, confirma la capacidad del modelo para identificar estudiantes sanos/resilientes.
+1.  **Alta Discriminación del Perfil Sano:** El modelo demuestra una excelente especificidad al aislar el perfil **"Low Risk"**, donde la prevalencia de depresión es mínima (**12.6%**). Esto valida su utilidad como herramienta para descartar dichos casos con seguridad.
 
-Esta validación confirma que las variables seleccionadas (MI) y el algoritmo (CLARA) han logrado reconstruir el diagnóstico clínico sin verlo.
+2.  **No Linealidad del Riesgo:** Se observa un salto drástico, no gradual, en la patología. El grupo **"Medium Risk"** presenta una prevalencia del **70.5%**, una cifra alarmantemente cercana al **80.6%** del **"High Risk"**.
+
+> El perfil "Medio" no representa una patología leve, sino un **estado crítico latente**. Los datos sugieren que, una vez superados ciertos umbrales de estrés (académico o financiero), la probabilidad de depresión se dispara.
+
+# Reglas de Asociación
+
+Sabiendo **quiénes** son los estudiantes en riesgo y habiendo validado la gravedad de su situación, ahora buscamos la **causa raíz** del problema.
+
+¿Qué combinaciones específicas de factores detonan esta depresión? Para responder a esto, utilizamos técnicas de **Reglas de Asociación** con el algoritmo **Apriori**. El objetivo no es predecir un valor numérico, sino identificar combinaciones de factores (por ejemplo: *dieta + sueño + presión académica*) que actúan como "cócteles peligrosos" para la salud mental.
+
+Cargamos el dataset original asegurando que las cadenas de texto se interpreten como factores, lo cual facilita el análisis categórico posterior.
+
+```{r}
+data_raw <- read.csv("data/student_depression_factors.csv", stringsAsFactors = TRUE)
+
+```
+
+Antes de aplicar el algoritmo, es fundamental revisar la naturaleza de las variables. El algoritmo Apriori requiere variables categóricas (factores), por lo que debemos identificar qué columnas son numéricas (y necesitarán discretización) y cuáles tienen una cardinalidad excesiva que podría introducir ruido.
+
+```{r}
+str(data_raw)
+
+summary(data_raw[, c("Age", "CGPA", "Work.Study.Hours","City")])
+```
+
+Basándonos en la inspección anterior, procedemos a descartar la variable `City`. Su alta cardinalidad fragmentaría el análisis generando reglas geográficas demasiado específicas y poco representativas del comportamiento general. Mantenemos el resto de variables demográficas, académicas y de hábitos para buscar patrones transversales.
+
+```{r}
+data_selected <- data_raw %>%
+  select(-City)
+```
+
+Para que el algoritmo Apriori funcione, debemos transformar las variables numéricas continuas en rangos categóricos. Definimos los cortes basándonos en criterios académicos y biológicos: la edad se agrupa por etapas universitarias, el CGPA (rendimiento) en niveles de desempeño, y las horas de trabajo/estudio en carga laboral.
+
+```{r}
+data_discretized <- data_selected %>%
+  mutate(
+    Age_Group = cut(Age, 
+                    breaks = c(-Inf, 18, 22, Inf), 
+                    labels = c("Minor", "Undergrad", "Senior")),
+    
+    CGPA_Level = cut(CGPA, 
+                     breaks = c(-Inf, 6.5, 8.5, Inf), 
+                     labels = c("Low", "Medium", "High")),
+    
+    Work_Load = cut(Work.Study.Hours, 
+                    breaks = c(-Inf, 2, 6, Inf), 
+                    labels = c("Low", "Medium", "High"))
+  ) %>%
+  select(-Age, -CGPA, -Work.Study.Hours)
+```
+
+Las variables restantes contienen códigos numéricos (escalas 1-5 o binarios 0/1) que no son interpretables directamente por el algoritmo. Convertimos estas escalas en factores con etiquetas semánticas claras (ej. de "5" a "Critical") y estandarizamos el resto de variables cualitativas para asegurar que todas sean tratadas como factores.
+
+```{r}
+data_transformed <- data_discretized %>%
+  mutate(
+    Academic_Pressure = factor(Academic.Pressure, levels = 0:5, 
+                               labels = c("None", "Min", "Low", "Moderate", "High", "Very High")),
+    
+    Study_Satisfaction = factor(Study.Satisfaction, levels = 0:5, 
+                                labels = c("None", "Min", "Low", "Moderate", "High", "Very High")),
+    
+    Financial_Stress = factor(Financial.Stress, levels = 1:5, 
+                              labels = c("Min", "Low", "Moderate", "High", "Critical")),
+    
+    Suicidal_Thoughts = factor(Had.suicidal.thoughts, levels = c(0, 1), 
+                               labels = c("No", "Yes")),
+    
+    Family_History = factor(Family.History.Mental.Illness, levels = c(0, 1), 
+                            labels = c("No", "Yes")),
+    
+    Sleep_Duration = as.factor(Sleep.Duration),
+    Dietary_Habits = as.factor(Dietary.Habits),
+    Degree = as.factor(Degree),
+    Gender = as.factor(Gender),
+    Depression = as.factor(Depression)
+  ) %>%
+  select(Academic_Pressure, Study_Satisfaction, Financial_Stress, 
+         Suicidal_Thoughts, Family_History, Sleep_Duration, 
+         Dietary_Habits, Degree, Gender, Depression,
+         Age_Group, CGPA_Level, Work_Load)
+
+```
+
+El algoritmo Apriori no trabaja con dataframes convencionales, sino con una matriz dispersa de transacciones. Convertimos nuestros datos transformados a este formato, donde cada fila representa a un estudiante como un conjunto de "items" (sus características).
+
+```{r}
+data_transactions <- as(data_transformed, "transactions")
+```
+
+Ejecutamos el algoritmo buscando específicamente las reglas que tienen como consecuente la depresión (`Depression=Yes`). Configuramos un soporte mínimo del 5% para capturar patrones relevantes pero no necesariamente masivos, y una confianza del 50% para asegurar que la asociación sea significativa.
+
+```{r}
+rules <- apriori(data_transactions, 
+                 parameter = list(supp = 0.05, conf = 0.5),
+                 appearance = list(default = "lhs", rhs = "Depression=Yes"),
+                 control = list(verbose = FALSE))
+```
+
+Es común que el algoritmo genere reglas redundantes (versiones más complejas de una regla simple que no aportan más información). Filtramos estas redundancias matemáticamente y ordenamos las reglas restantes por **Lift**, que es la métrica clave para determinar cuánto aumenta el riesgo de depresión dada la presencia de los antecedentes.
+
+```{r}
+rules_pruned <- rules[!is.redundant(rules)]
+rules_sorted <- sort(rules_pruned, by = "lift")
+```
+
+Una vez filtradas las reglas redundantes, examinamos las 10 mejores asociaciones ordenadas por *Lift*. Un valor de Lift superior a 1 indica una relación positiva; cuanto mayor sea este valor, más fuerte es la dependencia entre los antecedentes (LHS) y la depresión (RHS). Esto nos permite identificar los perfiles de riesgo más críticos.
+
+```{r}
+rules_df_final <- as(head(rules_sorted, 10), "data.frame")
+
+rules_df_final <- rules_df_final[, c("rules", "support", "confidence", "lift", "count")]
+  
+rules_df_final$rules <- gsub("[\\{\\}]", "", rules_df_final$rules)
+rules_df_final$rules <- gsub("=>", "→", rules_df_final$rules)
+rules_df_final$rules <- gsub("Depression=Yes", "Depression", rules_df_final$rules)
+  
+rules_df_final$rules <- str_squish(rules_df_final$rules)
+  
+colnames(rules_df_final) <- c("Regla (Causa → Efecto)", "Soporte", "Confianza", "Lift", "Conteo")
+
+rules_df_final$Lift <- cell_spec(sprintf("%.3f", rules_df_final$Lift),
+                                 color = ifelse(rules_df_final$Lift > 1.65, "#C0392B", "black"),
+                                 bold = ifelse(rules_df_final$Lift > 1.65, TRUE, FALSE))
+
+kbl(rules_df_final, 
+    caption = "Top 10 Patrones de Riesgo Identificados", 
+    digits = 3, 
+    escape = FALSE,
+    row.names = FALSE,  
+    align = "lcccc") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = TRUE, 
+                position = "center",
+                font_size = 13) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#4CAF50") %>%
+  column_spec(1, bold = TRUE, width = "50em") %>%
+  add_footnote("Lift > 1 indica una asociación positiva fuerte (mayor riesgo).", notation = "none")
+```
+
+## Interpretación Clínica de los Patrones
+
+El análisis de Reglas de Asociación revela una estructura patogénica clara, dominada por una **"Tríada Tóxica"** y amplificada por factores de estilo de vida. A continuación, desglosamos los hallazgos:
+
+1.  **La Tríada Tóxica (Regla #1, Lift 1.681)**: La componente más potente de depresión no es un factor aislado, sino la convergencia simultánea de **Presión Académica Extrema** + **Estrés Financiero Crítico** + **Pensamientos Suicidas**. Esta combinación eleva el riesgo (**Lift**) a su punto máximo (**1.681**), sugiriendo que la acumulación de estresores sistémicos (dinero y estudios) crea un callejón sin salida psicológico.
+
+2.  **La Omnipresencia de la Presión Académica**: El antecedente `Academic_Pressure=Very High` actúa como el denominador común en **todas las reglas principales**. Esto indica que, independientemente de otros factores, la percepción de una carga académica inmanejable es el pilar central sobre el que se construye la patología depresiva en esta población.
+
+3.  **Factores Catalizadores**: Observamos cómo factores biológicos actúan como amplificadores del riesgo. Hábitos como `Dietary_Habits=Unhealthy` (Reglas #2, #3, #5) y `Sleep_Duration=Less than 5 hours` (Regla #8) no aparecen aislados, sino que **exacerban** la vulnerabilidad creada por la presión académica. Específicamente, la privación de sueño severa (\< 5h) parece ser un mecanismo fisiológico que reduce la resiliencia ante el estrés académico.
+
+> Las intervenciones no deben enfocarse únicamente en "charla psicológica". Se requiere un **enfoque estructural** que mitigue la **Presión Académica** y ofrezca redes de seguridad para el **Estrés Financiero**, ya que estos son los detonantes primarios que, una vez activados, se ven agravados por malos hábitos de salud.

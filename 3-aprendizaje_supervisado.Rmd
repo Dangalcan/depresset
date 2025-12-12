@@ -5,309 +5,957 @@ output:
   html_document:
     toc: true
     toc_float: true
+    toc_depth: 4
     # number_sections: true
 ---
 
 # Aprendizaje supervisado
 
-Tras la fase de visualización y el análisis exploratorio inicial desarrollado en el cuaderno anterior, en este cuaderno nos adentramos en la fase de modelización supervisada, cuyo objetivo es predecir la variable Depression a partir del resto de factores académicos, personales y de estilo de vida presentes en el dataset. El aprendizaje supervisado nos permite entrenar distintos modelos capaces de aprender patrones y relaciones entre variables, evaluando posteriormente su rendimiento mediante técnicas de validación cruzada. Esto no solo permite determinar qué modelo es más preciso, sino también qué factores tienen mayor importancia en la predicción de la depresión estudiantil.
+Tras la fase de visualización y el análisis exploratorio desarrollados en los cuadernos anteriores, en este cuaderno nos adentramos en la fase de modelización supervisada, cuyo objetivo es predecir la variable `Depression` a partir del resto de factores académicos, personales y de estilo de vida presentes en el dataset.
 
-A lo largo de este cuaderno:
+En el cuaderno de preprocesamiento ya se generaron varios datasets derivados:
 
-+ Prepararemos los conjuntos de datos ya procesados en fases anteriores.
+-   Un dataset con variables mayoritariamente categóricas y numéricas sin normalizar, pensado para modelos basados en árboles y análisis exploratorio: `student_depression_factors.csv`.
+-   Un dataset numérico normalizado mediante Min-Max scaling, adecuado para algoritmos basados en distancias: `student_depression_numeric_minmax.csv`.
+-   Un dataset numérico estandarizado (media 0, desviación típica 1), idóneo para modelos lineales y otros que asumen variables escaladas: `student_depression_numeric_standard.csv`.
+-   Versiones con reducción de dimensionalidad / selección de variables para los dos esquemas anteriores: `student_depression_numeric_minmax_mi.csv` y `student_depression_numeric_standard_mi.csv`.
 
-+ Definiremos un esquema de validación cruzada estricto para evaluar los modelos.
+En este cuaderno vamos a:
 
-+ Entrenaremos varias técnicas populares de predicción:
+-   Cargar estos datasets derivados y preparar la variable objetivo.
 
-  - Árbol de decisión (rpart)
+-   Definir un esquema de partición train/test estratificado.
 
-  - Regresión logística (glm)
+-   Aplicar validación cruzada para estimar el rendimiento de varios modelos.
 
-  - Regresión regularizada (glmnet)
+-   Entrenar y comparar los siguientes modelos:
 
-  - XGBoost
+    -   Árbol de decisión (rpart) sobre el dataset factors.
+    -   Regresión logística (glm) sobre datasets numéricos.
+    -   Regresión regularizada (glmnet).
+    -   XGBoost (xgbTree).
+    -   KNN (knn).
 
-  - KNN
+-   Para cada modelo utilizaremos la variante de dataset que tiene más sentido:
 
-+ Compararemos sus métricas mediante métodos estadísticos y visuales. 
+    -   Árbol: dataset con factores (sin normalizar).
+    -   Modelos lineales: datasets estandarizados (con y sin MI).
+    -   XGBoost y KNN: datasets Min–Max (con y sin MI).
 
-+ Interpretaremos resultados y extraeremos conclusiones sobre qué modelos funcionan mejor y qué variables tienen mayor contribución.
+-   Evaluaremos todas las combinaciones en test (Accuracy, Kappa, Precision, Recall, Specificity, F1 y AUC).
+
+-   Compararemos modelos mediante tablas y gráficos (boxplots de ROC en CV y barplots de AUC en test).
 
 El objetivo final es proporcionar una visión completa de la capacidad predictiva del dataset y del rol que juegan los distintos factores asociados a la depresión en estudiantes.
 
-```{r}
-# install.packages("glmnet")
-# install.packages("xgboost")
-# install.packages("pROC")
-```
-## 1. Carga de librerías
+Antes de comenzar con el análisis, cargamos las librerías necesarias. Emplearemos `doParallel` para acelerar el cómputo aprovechando los múltiples núcleos del procesador.
 
-Cargamos las librerías necesarias para el análisis y la construcción de modelos supervisados.
 ```{r}
+# install.packages('caret')
 library(caret)
+
+# install.packages('dplyr')
 library(dplyr)
+
+# install.packages('ggplot2')
+library(ggplot2)
+
+# install.packages('tidyr')
+library(tidyr)
+
+# install.packages('rpart.plot')
 library(rpart.plot)
+
+# install.packages('glmnet')
 library(glmnet)
+
+# install.packages('xgboost')
 library(xgboost)
+
+# install.packages('pROC')
 library(pROC)
+
+#install.packages("fastshap")
+library(fastshap)
+
+#install.packages("shapviz")
+library(shapviz)
+
+# install.packages("doParallel")
+library(doParallel)
 ```
 
-## 2. Lectura de los datasets
-
-Leemos los dos conjuntos de datos: uno con variables categóricas (df_factors) y otro normalizado (df_norm).
 ```{r}
-df_factors <- read.csv("./data/student_depression_clean_factors.csv", stringsAsFactors = TRUE)
-df_norm    <- read.csv("./data/student_depression_normalized.csv")
+# ==============================================================================
+# BLOQUE DE OPTIMIZACIÓN: PARALELIZACIÓN CON CPU
+# ==============================================================================
+
+# 1. Detectar núcleos:
+total_cores <- parallel::detectCores(logical = FALSE)
+
+# 2. Crear cluster: Dejamos 2 núcleos libres para que no se bloqueen.
+n_cores_uso <- max(1, total_cores - 2) 
+cl <- makePSOCKcluster(n_cores_uso)
+
+# 3. Registrar el cluster para que 'caret' lo vea automáticamente
+registerDoParallel(cl)
+
+message(paste("🚀 MODO TURBO ACTIVADO: Entrenando modelos usando", n_cores_uso, "núcleos en paralelo."))
+message("Nota: Abre el Administrador de Tareas para ver tu CPU al 100% durante el entrenamiento.")
 ```
 
-## 3. Preprocesamiento final para modelización
+## 1. Lectura de datasets
 
-Transformamos algunas variables binarias a factores con niveles “Yes/No” y nos aseguramos de que la variable objetivo Depression tenga los niveles en el orden correcto.
+En la fase de preprocesamiento generamos distintas versiones del dataset para adaptarnos a los requerimientos de los diferentes algoritmos de aprendizaje automático. A continuación, cargamos estos ficheros:
+
+-   **`df_factors`**: Contiene variables categóricas y numéricas sin escalar. Es la versión ideal para modelos basados en árboles (Árboles de Decisión, Random Forest), que no requieren normalización y manejan bien las categorías.
+-   **`df_minmax`**: Versión con variables numéricas escaladas al rango [0, 1]. Este formato es preferible para algoritmos basados en distancias (como KNN) y redes neuronales, y suele funcionar bien con XGBoost.
+-   **`df_standard`**: Versión con variables estandarizadas (media 0, varianza 1). Es fundamental para modelos lineales (Regresión Logística, GLMNet) donde la escala de las variables influye en los coeficientes.
+-   **Versiones `_mi`**: Son variantes de los datasets anteriores donde se ha aplicado una selección de características basada en Información Mutua (Mutual Information) para reducir la dimensionalidad y eliminar ruido.
+
 ```{r}
-df_factors <- df_factors %>%
-mutate(
-Had.suicidal.thoughts         = ifelse(Had.suicidal.thoughts == 1, "Yes", "No"),
-Family.History.Mental.Illness = ifelse(Family.History.Mental.Illness == 1, "Yes", "No"),
-Depression                    = ifelse(Depression == 1, "Yes", "No")
-)
+df_factors <- read.csv("./data/student_depression_factors.csv", stringsAsFactors = TRUE)
+head(df_factors)
 
-df_factors$Had.suicidal.thoughts <- factor(df_factors$Had.suicidal.thoughts,
-levels = c("Yes", "No"))
-df_factors$Family.History.Mental.Illness <- factor(df_factors$Family.History.Mental.Illness,
-levels = c("Yes", "No"))
-df_factors$Depression <- factor(df_factors$Depression,
-levels = c("Yes", "No"))
+df_minmax <- read.csv("./data/student_depression_numeric_minmax.csv")
+head(df_minmax)
 
-df_norm$Depression <- ifelse(df_norm$Depression == 1, "Yes", "No")
-df_norm$Depression <- factor(df_norm$Depression,
-levels = c("Yes", "No"))
+df_minmax_mi <- read.csv("./data/student_depression_numeric_minmax_mi.csv")
+head(df_minmax_mi)
 
+df_standard  <- read.csv("./data/student_depression_numeric_standard.csv")
+head(df_standard)
+
+df_standard_mi <- read.csv("./data/student_depression_numeric_standard_mi.csv")
+head(df_standard_mi)
 ```
 
-## 4. Definición del esquema de validación
+## 2. Esquema de validación y grids de hiperparámetros
 
-Realizamos una partición train/test estratificada (75% entrenamiento, 25% test) para evaluar el rendimiento final de los modelos en datos no vistos.
+### 2.1. Control de entrenamiento (Cross-Validation)
+
+Para estimar el rendimiento de los modelos durante la fase de entrenamiento y seleccionar los mejores hiperparámetros, utilizaremos **Validación Cruzada con k-iteraciones (k-Fold Cross-Validation)**, concretamente con $k=10$.
+
+Este método divide el conjunto de entrenamiento en 10 partes (folds). El modelo se entrena en 9 partes y se valida en la restante, repitiendo el proceso 10 veces. El resultado final es el promedio de las métricas obtenidas.
+
+Como métrica principal para la optimización utilizaremos el **Área Bajo la Curva ROC (AUC)**, que es más robusta que la precisión (accuracy) cuando existen desequilibrios de clase o cuando nos interesa evaluar la capacidad del modelo para ordenar correctamente las probabilidades de las clases.
+
 ```{r}
 set.seed(123)
 
-train_index <- createDataPartition(df_norm$Depression, p = 0.75, list = FALSE)
-
-# Conjunto de entrenamiento y test para el modelo de árbol (df_factors)
-
-df_factors_train <- df_factors[train_index, ]
-df_factors_test  <- df_factors[-train_index, ]
-
-# Conjunto de entrenamiento y test para el resto de modelos (df_norm)
-
-df_norm_train <- df_norm[train_index, ]
-df_norm_test  <- df_norm[-train_index, ]
-
-```
-Definimos la estrategia de validación cruzada que se utilizará dentro del conjunto de entrenamiento (10-fold CV, cálculo de probabilidades y métrica ROC).
-```{r}
 global_control <- trainControl(
-method = "cv",
-number = 10,
-classProbs = TRUE,
-summaryFunction = twoClassSummary,
-savePredictions = "final"
+  method          = "cv",
+  number          = 10,
+  classProbs      = TRUE,
+  summaryFunction = twoClassSummary,  # usaremos ROC como métrica
+  savePredictions = "final"
 )
-
-```
-Ajustamos un árbol de decisión con rpart, explorando distintos valores del parámetro de complejidad cp.
-```{r}
-tree_grid <- expand.grid(cp = seq(0.001, 0.05, by = 0.002))
-
-set.seed(123)
-tree_model <- train(
-Depression ~ .,
-data = df_factors_train,
-method = "rpart",
-trControl = global_control,
-tuneGrid = tree_grid,
-metric = "ROC"
-)
-
-print(tree_model)
-
-```
-Ajustamos un modelo GLM (regresión logística) sobre los datos normalizados.
-```{r}
-set.seed(123)
-glm_model <- train(
-Depression ~ .,
-data = df_norm_train,
-method = "glm",
-trControl = global_control,
-metric = "ROC"
-)
-
-print(glm_model)
-
 ```
 
-Ajustamos un modelo GLM con regularización (glmnet), probando diferentes combinaciones de alpha (L1/L2) y lambda (fuerza de regularización).
+### 2.2. Definición de grids de hiperparámetros
+
+Cada algoritmo de aprendizaje automático tiene parámetros internos (hiperparámetros) que no se aprenden de los datos, sino que deben ser configurados externamente. Para encontrar la mejor configuración, definimos una "rejilla" (grid) de valores posibles para cada modelo:
+
+-   **Árbol de decisión (`rpart`)**: Ajustamos el parámetro de complejidad `cp`, que controla el tamaño del árbol y ayuda a prevenir el sobreajuste (pruning).
+-   **Random Forest (`rf`)**: Ajustamos `mtry`, que es el número de variables candidatas seleccionadas aleatoriamente en cada división de nodo.
+-   **GLMNet (`glmnet`)**: Probamos combinaciones de `alpha` (tipo de regularización: 0=Ridge, 1=Lasso) y `lambda` (intensidad de la regularización).
+-   **XGBoost (`xgbTree`)**: Ajustamos múltiples parámetros como el número de iteraciones (`nrounds`), profundidad máxima (`max_depth`), tasa de aprendizaje (`eta`), etc.
+-   **KNN (`knn`)**: Ajustamos `k`, el número de vecinos más cercanos a considerar para la clasificación.
 
 ```{r}
-glmnet_grid <- expand.grid(
-alpha  = 0:1,
-lambda = seq(0.0001, 1, length = 20)
+# Árbol de decisión (profundidad controlada por cp)
+grid_tree <- expand.grid(cp = seq(0.001, 0.05, by = 0.002))
+
+# Random Forest
+# mtry: número de variables seleccionadas aleatoriamente en cada split
+# Generalmente sqrt(ncol(x)) es un buen valor por defecto.
+grid_rf <- expand.grid(mtry = c(2, 5, 8, 11, 15))
+
+# GLM (regresión logística): sin grid específico, caret ajusta el modelo base
+
+# GLMNet (L1/L2 + lambda)
+grid_glmnet <- expand.grid(
+  alpha  = 0:1,   # 0 = ridge, 1 = lasso
+  lambda = seq(0.0001, 1, length = 20)
 )
 
-set.seed(123)
-glmnet_model <- train(
-Depression ~ .,
-data = df_norm_train,
-method = "glmnet",
-trControl = global_control,
-tuneGrid = glmnet_grid,
-metric = "ROC"
-)
-
-print(glmnet_model)
-
-```
-Ajustamos un modelo de gradiente boosting XGBoost (xgbTree), explorando distintos hiperparámetros como profundidad de los árboles, número de iteraciones y tasa de aprendizaje.
-```{r}
+# XGBoost
 grid_xgb <- expand.grid(
-nrounds          = c(50, 100, 150),
-max_depth        = c(3, 6, 9),
-eta              = c(0.01, 0.1, 0.3),
-gamma            = 0,
-colsample_bytree = 1,
-min_child_weight = 1,
-subsample        = 1
+  nrounds          = c(50, 100, 150),
+  max_depth        = c(3, 6, 9),
+  eta              = c(0.01, 0.1, 0.3),
+  gamma            = 0,
+  colsample_bytree = 1,
+  min_child_weight = 1,
+  subsample        = 1
 )
 
-set.seed(123)
-xgb_model <- train(
-Depression ~ .,
-data = df_norm_train,
-method = "xgbTree",
-trControl = global_control,
-tuneGrid = grid_xgb,
-metric = "ROC"
-)
-
-print(xgb_model)
-
-```
-Ajustamos un modelo KNN (knn), probando diferentes valores del número de vecinos k
-```{r}
-knn_grid <- expand.grid(k = seq(5, 35, by = 2))
-
-set.seed(123)
-knn_model <- train(
-Depression ~ .,
-data = df_norm_train,
-method = "knn",
-trControl = global_control,
-tuneGrid = knn_grid,
-metric = "ROC"
-)
-
-print(knn_model)
-
-```
-Comparamos todos los modelos utilizando los resultados de la validación cruzada en el conjunto de entrenamiento.
-```{r}
-model_list <- list(
-Arbol   = tree_model,
-GLM     = glm_model,
-GLMNet  = glmnet_model,
-XGBoost = xgb_model,
-KNN     = knn_model
-)
-
-comparison_results <- resamples(model_list)
-summary(comparison_results)
-
-```
-Visualizamos la comparación entre modelos mediante diferentes gráficos (puntos, diagramas de caja y gráfico de puntos para la métrica ROC).
-```{r}
-xyplot(comparison_results)
-
-bwplot(comparison_results, metric = "ROC")
-dotplot(comparison_results, metric = "ROC")
-```
-Representamos el árbol de decisión final y observamos la importancia de las variables según este modelo.
-```{r}
-rpart.plot(tree_model$finalModel,
-extra = 106,
-box.palette = "RdGn",
-main = "Árbol de Decisión: Factores de Depresión")
-
+# KNN
+grid_knn <- expand.grid(k = seq(5, 35, by = 2))
 ```
 
+## 3. Separación en conjunto de train y test
+
+Para evaluar la capacidad de generalización de nuestros modelos, es imprescindible separar los datos en dos conjuntos:
+
+1.  **Conjunto de entrenamiento (Train)**: Utilizado para ajustar los parámetros del modelo.
+2.  **Conjunto de prueba (Test)**: Datos "no vistos" por el modelo, utilizados exclusivamente para la evaluación final.
+
+Utilizaremos una **partición estratificada** basada en la variable objetivo `Depression`. Esto garantiza que la proporción de estudiantes con y sin depresión sea la misma en ambos conjuntos, evitando sesgos en la evaluación, especialmente si las clases estuvieran desbalanceadas.
+
+### 3.1. Experimento: Impacto de la partición de datos (Train/Test Split)
+
+Una decisión fundamental en cualquier proyecto de Machine Learning es determinar qué proporción de datos destinar al entrenamiento y cuál a la evaluación.
+
+-   Si el conjunto de **train** es muy pequeño, el modelo no aprenderá patrones robustos (underfitting).
+-   Si el conjunto de **test** es muy pequeño, la estimación del error será poco fiable y tendrá mucha varianza.
+
+Para analizar empíricamente cuál es la mejor estrategia para nuestro dataset, realizamos un experimento comparando tres particiones comunes: **70/30**, **75/25** y **80/20**. Utilizaremos un modelo de Regresión Logística (GLM) como base para comparar el AUC obtenido en el conjunto de test para cada configuración.
+
 ```{r}
-varImp(tree_model)
-
-```
-Evaluamos ahora el rendimiento final de cada modelo en el conjunto de test, calculando matriz de confusión y AUC de la curva ROC.
-```{r}
-# Función auxiliar para evaluar un modelo en test
-
-eval_model <- function(model, newdata, y_true) {
-
-# Predicción de clases
-
-pred_class <- predict(model, newdata = newdata)
-
-# Probabilidad de la clase positiva "Yes"
-
-pred_prob  <- predict(model, newdata = newdata, type = "prob")[, "Yes"]
-
-# Matriz de confusión
-
-cm <- confusionMatrix(pred_class, y_true, positive = "Yes")
-
-# Curva ROC y AUC
-
-roc_obj <- roc(response = y_true,
-predictor = pred_prob,
-levels = c("No", "Yes"))
-
-list(
-cm  = cm,
-roc = roc_obj,
-auc = as.numeric(auc(roc_obj))
-)
+# Función para probar una partición y un modelo rápido (ej. GLM)
+test_partition <- function(p_val) {
+  set.seed(123)
+  idx <- createDataPartition(df_standard$Depression, p = p_val, list = FALSE)
+  tr  <- df_standard[idx, ]
+  ts  <- df_standard[-idx, ]
+  
+  mod <- train(Depression ~ ., data = tr, method = "glm", family = "binomial", trControl = global_control, metric = "ROC")
+  
+  # Evaluar en test
+  pred_prob <- predict(mod, newdata = ts, type = "prob")[, "Yes"]
+  roc_obj   <- roc(ts$Depression, pred_prob, levels = c("No", "Yes"), quiet=TRUE)
+  as.numeric(auc(roc_obj))
 }
 
-# Árbol (usa df_factors_test)
+partitions <- c(0.7, 0.75, 0.8)
+results_part <- sapply(partitions, test_partition)
+names(results_part) <- paste0(partitions*100, "/", (1-partitions)*100)
 
-res_tree   <- eval_model(tree_model,   df_factors_test, df_factors_test$Depression)
+print("AUC en test según partición (Modelo GLM):")
+print(results_part)
+```
 
-# Resto de modelos (usan df_norm_test)
+### 3.2. Elección de la mejor partición
 
-res_glm    <- eval_model(glm_model,    df_norm_test, df_norm_test$Depression)
-res_glmnet <- eval_model(glmnet_model, df_norm_test, df_norm_test$Depression)
-res_xgb    <- eval_model(xgb_model,    df_norm_test, df_norm_test$Depression)
-res_knn    <- eval_model(knn_model,    df_norm_test, df_norm_test$Depression)
+Definimos una proporción de **70% para entrenamiento** y **30% para test**, una configuración estándar en ciencia de datos.
 
-# Resumen de AUC en test
+```{r}
+set.seed(123)
 
-auc_test <- data.frame(
-Modelo   = c("Árbol", "GLM", "GLMNet", "XGBoost", "KNN"),
-AUC_test = c(res_tree$auc,
-res_glm$auc,
-res_glmnet$auc,
-res_xgb$auc,
-res_knn$auc)
+# Definimos la proporción de train. 
+# Valores comunes: 0.8 (80/20), 0.75 (75/25), 0.7 (70/30).
+split_p <- 0.7
+
+train_index <- createDataPartition(df_factors$Depression, p = split_p, list = FALSE)
+
+# Dataset con factores (para árboles)
+factors_train <- df_factors[train_index, ]
+factors_test  <- df_factors[-train_index, ]
+
+# Datasets numéricos Min–Max
+minmax_train    <- df_minmax[train_index, ]
+minmax_test     <- df_minmax[-train_index, ]
+
+minmax_mi_train <- df_minmax_mi[train_index, ]
+minmax_mi_test  <- df_minmax_mi[-train_index, ]
+
+# Datasets numéricos estándar
+standard_train    <- df_standard[train_index, ]
+standard_test     <- df_standard[-train_index, ]
+
+standard_mi_train <- df_standard_mi[train_index, ]
+standard_mi_test  <- df_standard_mi[-train_index, ]
+```
+
+## 4. Entrenamiento de modelos
+
+En esta sección procedemos a entrenar los distintos algoritmos definidos. Para cada uno, `caret` ejecutará la validación cruzada sobre el grid de hiperparámetros especificado y seleccionará automáticamente el modelo óptimo.
+
+### 4.1. Modelos basados en árboles
+
+Estos modelos son capaces de capturar relaciones no lineales y son muy interpretables (especialmente el árbol simple). Utilizaremos el dataset `factors_train` ya que manejan nativamente las variables categóricas.
+
+#### 4.1.1. Árbol de decisión (CART)
+
+El árbol de decisión divide recursivamente el espacio de predictores en regiones rectangulares, buscando en cada paso la variable que mejor separa las clases.
+
+```{r}
+set.seed(123)
+
+model_tree_factors <- train(
+  Depression ~ .,
+  data      = factors_train,
+  method    = "rpart",
+  trControl = global_control,
+  tuneGrid  = grid_tree,
+  metric    = "ROC"
 )
 
-auc_test
-
+model_tree_factors
 ```
-Por último, mostramos como ejemplo la matriz de confusión y la curva ROC en test para el modelo XGBoost, que suele ser uno de los más competitivos.
+
+Podemos visualizar el árbol final:
+
 ```{r}
-# Matriz de confusión para XGBoost en test
+rpart.plot(model_tree_factors$finalModel,
+  extra       = 106,
+  box.palette = "RdGn",
+  main        = "Árbol de decisión (datos con factores)"
+)
+```
 
-res_xgb$cm
+### 4.1.2. Random Forest
 
-# Curva ROC en test para XGBoost
+El Random Forest suele ofrecer mejor rendimiento que un árbol de decisión simple al promediar múltiples árboles (bagging) y descorrelacionarlos (selección aleatoria de variables).
 
-plot(res_xgb$roc, main = "Curva ROC en test - XGBoost")
+```{r}
+set.seed(123)
 
+model_rf_factors <- train(
+  Depression ~ .,
+  data      = factors_train,
+  method    = "rf",
+  trControl = global_control,
+  tuneGrid  = grid_rf,
+  metric    = "ROC"
+)
+
+model_rf_factors
+```
+
+### 4.2. Modelos lineales
+
+Los modelos lineales asumen que existe una relación directa y proporcional entre las variables predictoras y la probabilidad de que ocurra el evento de interés (en este caso, tener depresión). Son muy eficientes y estables, pero requieren que los datos estén estandarizados para que los coeficientes sean comparables y la regularización funcione correctamente.
+
+Utilizaremos los datasets `standard_train` y `standard_mi_train`.
+
+#### 4.2.1. Regresión Logística (GLM)
+
+Es el modelo base para clasificación binaria. No tiene hiperparámetros complejos de ajuste (más allá de la selección de variables), por lo que sirve como una excelente línea base (baseline).
+
+```{r}
+set.seed(123)
+
+model_glm_std <- train(
+  Depression ~ .,
+  data      = standard_train,
+  method    = "glm",
+  family    = "binomial",
+  trControl = global_control,
+  metric    = "ROC"
+)
+```
+
+```{r}
+set.seed(123)
+
+model_glm_std_mi <- train(
+  Depression ~ .,
+  data      = standard_mi_train,
+  method    = "glm",
+  family    = "binomial",
+  trControl = global_control,
+  metric    = "ROC"
+)
+```
+
+#### 4.2.2. Regresión Regularizada (GLMNet)
+
+GLMNet combina la regresión logística con técnicas de regularización (Lasso y Ridge). La regularización penaliza los coeficientes grandes, lo que ayuda a reducir la varianza del modelo, evitar el sobreajuste y realizar selección automática de variables (en el caso de Lasso).
+
+```{r}
+set.seed(123)
+
+model_glmnet_std <- train(
+  Depression ~ .,
+  data      = standard_train,
+  method    = "glmnet",
+  trControl = global_control,
+  tuneGrid  = grid_glmnet,
+  metric    = "ROC"
+)
+```
+
+```{r}
+set.seed(123)
+
+model_glmnet_std_mi <- train(
+  Depression ~ .,
+  data      = standard_mi_train,
+  method    = "glmnet",
+  trControl = global_control,
+  tuneGrid  = grid_glmnet,
+  metric    = "ROC"
+)
+```
+
+### 4.3. Modelos basados en distancias y boosting
+
+Para estos modelos utilizamos los datos escalados con Min-Max (`minmax_train`), ya que KNN es sensible a la escala de las distancias y XGBoost suele beneficiarse de rangos numéricos acotados.
+
+#### 4.3.1. XGBoost (Extreme Gradient Boosting)
+
+XGBoost es una técnica de ensamblaje avanzada que construye modelos secuencialmente. Cada nuevo modelo intenta corregir los errores de los anteriores. Es uno de los algoritmos más potentes en la actualidad para datos tabulares.
+
+```{r}
+set.seed(123)
+
+model_xgb_minmax <- train(
+  Depression ~ .,
+  data      = minmax_train,
+  method    = "xgbTree",
+  trControl = global_control,
+  tuneGrid  = grid_xgb,
+  metric    = "ROC"
+)
+```
+
+```{r}
+set.seed(123)
+
+model_xgb_minmax_mi <- train(
+  Depression ~ .,
+  data      = minmax_mi_train,
+  method    = "xgbTree",
+  trControl = global_control,
+  tuneGrid  = grid_xgb,
+  metric    = "ROC"
+)
+```
+
+#### 4.3.2. K-Nearest Neighbors (KNN)
+
+KNN es un algoritmo simple pero efectivo que clasifica una nueva instancia basándose en la clase mayoritaria de sus $k$ vecinos más cercanos en el espacio de características. Al basarse en distancias euclídeas, es crucial que todas las variables tengan la misma escala.
+
+```{r}
+set.seed(123)
+
+model_knn_minmax <- train(
+  Depression ~ .,
+  data      = minmax_train,
+  method    = "knn",
+  trControl = global_control,
+  tuneGrid  = grid_knn,
+  metric    = "ROC"
+)
+```
+
+```{r}
+set.seed(123)
+
+model_knn_minmax_mi <- train(
+  Depression ~ .,
+  data      = minmax_mi_train,
+  method    = "knn",
+  trControl = global_control,
+  tuneGrid  = grid_knn,
+  metric    = "ROC"
+)
+```
+
+## 5. Comparación de modelos en validación cruzada
+
+Agrupamos todos los modelos y comparamos sus resultados de CV usando la métrica ROC.
+
+```{r}
+model_list <- list(
+  Tree_Factores      = model_tree_factors,
+  Random_Forest      = model_rf_factors,
+  GLM_Std            = model_glm_std,
+  GLM_Std_MI         = model_glm_std_mi,
+  GLMNet_Std         = model_glmnet_std,
+  GLMNet_Std_MI      = model_glmnet_std_mi,
+  XGB_MinMax         = model_xgb_minmax,
+  XGB_MinMax_MI      = model_xgb_minmax_mi,
+  KNN_MinMax         = model_knn_minmax,
+  KNN_MinMax_MI      = model_knn_minmax_mi
+)
+
+resamples_models <- resamples(model_list)
+
+summary(resamples_models, metric = "ROC")
+```
+
+### 5.1. Visualización de métricas en CV
+
+```{r}
+bwplot(resamples_models, metric = "ROC", main = "Comparación de modelos (ROC en CV)")
+```
+
+```{r}
+dotplot(resamples_models, metric = "ROC", main = "Media de ROC por modelo (CV)")
+```
+
+## 6. Evaluación de rendimiento en el conjunto de test
+
+Una vez seleccionados y entrenados los mejores modelos mediante validación cruzada, el paso crítico es evaluar su rendimiento real sobre el conjunto de **test** (datos que nunca han visto).
+
+Para ello, calcularemos un conjunto completo de métricas que nos darán una visión holística del comportamiento del clasificador:
+
+-   **Accuracy (Exactitud)**: Proporción total de predicciones correctas.
+-   **Kappa**: Medida de concordancia que ajusta el accuracy por la probabilidad de acierto al azar.
+-   **Sensitivity (Sensibilidad / Recall)**: Capacidad del modelo para detectar correctamente los casos positivos (Estudiantes con depresión). $TP / (TP + FN)$.
+-   **Specificity (Especificidad)**: Capacidad para identificar correctamente los casos negativos (Estudiantes sin depresión). $TN / (TN + FP)$.
+-   **Precision (Precisión)**: De los casos que el modelo predijo como positivos, ¿cuántos lo eran realmente? $TP / (TP + FP)$.
+-   **F1 Score**: Media armónica entre Precisión y Sensibilidad. Es una métrica balanceada muy útil.
+-   **AUC (Area Under the Curve)**: Mide la capacidad del modelo para distinguir entre clases a través de distintos umbrales de decisión.
+
+### 6.1. Función auxiliar de evaluación
+
+Definimos una función que automatiza el cálculo de todas estas métricas y genera la matriz de confusión y la curva ROC.
+
+```{r}
+eval_model <- function(model, newdata, y_true, positive = "Yes") {
+  
+  # Aseguramos que la referencia es factor
+  y_true <- factor(y_true)
+  
+  # Predicción de clases
+  pred_class <- predict(model, newdata = newdata)
+  
+  # Forzamos que tenga EXACTAMENTE los mismos niveles y orden que y_true
+  pred_class <- factor(pred_class, levels = levels(y_true))
+  
+  # Probabilidad de la clase positiva
+  pred_prob  <- predict(model, newdata = newdata, type = "prob")[, positive]
+  
+  # Matriz de confusión
+  cm <- confusionMatrix(pred_class, y_true, positive = positive)
+  
+  # Curva ROC y AUC (pROC)
+  roc_obj <- roc(
+    response  = y_true,
+    predictor = pred_prob,
+    levels    = c("No", "Yes")
+  )
+  
+  # Métricas
+  accuracy    <- cm$overall["Accuracy"]
+  kappa       <- cm$overall["Kappa"]
+  sensitivity <- cm$byClass["Sensitivity"]
+  specificity <- cm$byClass["Specificity"]
+  precision   <- cm$byClass["Precision"]
+  f1_score    <- 2 * (precision * sensitivity) / (precision + sensitivity)
+  auc_value   <- as.numeric(auc(roc_obj))
+  
+  metrics <- data.frame(
+    Accuracy    = as.numeric(accuracy),
+    Kappa       = as.numeric(kappa),
+    Sensitivity = as.numeric(sensitivity),
+    Specificity = as.numeric(specificity),
+    Precision   = as.numeric(precision),
+    F1          = as.numeric(f1_score),
+    AUC         = auc_value
+  )
+  
+  list(
+    metrics = metrics,
+    cm      = cm,
+    roc     = roc_obj
+  )
+}
+```
+
+### 6.2. Evaluación de todos los modelos
+
+Árbol (datos con factores)
+
+```{r}
+res_tree_factors <- eval_model(
+  model_tree_factors,
+  newdata = factors_test,
+  y_true = factors_test$Depression
+)
+```
+
+Random Forest (datos con factores)
+
+```{r}
+res_rf_factors <- eval_model(
+  model_rf_factors,
+  newdata = factors_test,
+  y_true = factors_test$Depression
+)
+```
+
+GLM / GLMNet (estándar)
+
+```{r}
+res_glm_std <- eval_model(
+  model_glm_std,
+  newdata = standard_test,
+  y_true = standard_test$Depression
+)
+
+res_glm_std_mi <- eval_model(
+  model_glm_std_mi,
+  newdata = standard_mi_test,
+  y_true = standard_mi_test$Depression
+)
+```
+
+```{r}
+res_glmnet_std <- eval_model(
+  model_glmnet_std,
+  newdata = standard_test,
+  y_true = standard_test$Depression
+)
+
+res_glmnet_std_mi <- eval_model(
+  model_glmnet_std_mi,
+  newdata = standard_mi_test,
+  y_true = standard_mi_test$Depression
+)
+```
+
+XGBoost (Min–Max)
+
+```{r}
+res_xgb_minmax <- eval_model(
+  model_xgb_minmax,
+  newdata = minmax_test,
+  y_true = minmax_test$Depression
+)
+
+res_xgb_minmax_mi <- eval_model(
+  model_xgb_minmax_mi,
+  newdata = minmax_mi_test,
+  y_true = minmax_mi_test$Depression
+)
+```
+
+KNN (Min–Max)
+
+```{r}
+res_knn_minmax <- eval_model(model_knn_minmax,
+  newdata = minmax_test,
+  y_true = minmax_test$Depression
+)
+
+res_knn_minmax_mi <- eval_model(model_knn_minmax_mi,
+  newdata = minmax_mi_test,
+  y_true = minmax_mi_test$Depression
+)
+```
+
+Unimos todas las métricas en una sola tabla para facilitar la comparación.
+
+```{r}
+metrics_test <- bind_rows(
+  Tree_Factores      = res_tree_factors$metrics,
+  Random_Forest      = res_rf_factors$metrics,
+  GLM_Std            = res_glm_std$metrics,
+  GLM_Std_MI         = res_glm_std_mi$metrics,
+  GLMNet_Std         = res_glmnet_std$metrics,
+  GLMNet_Std_MI      = res_glmnet_std_mi$metrics,
+  XGB_MinMax         = res_xgb_minmax$metrics,
+  XGB_MinMax_MI      = res_xgb_minmax_mi$metrics,
+  KNN_MinMax         = res_knn_minmax$metrics,
+  KNN_MinMax_MI      = res_knn_minmax_mi$metrics,
+  .id                = "Modelo"
+)
+
+metrics_test
+```
+
+## 7. Visualización gráfica de resultados en test
+
+### 7.1. AUC por modelo
+
+```{r}
+ggplot(metrics_test, aes(x = reorder(Modelo, AUC), y = AUC)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "AUC en test por modelo", x = "Modelo", y = "AUC") +
+  theme_minimal()
+```
+
+### 7.2. Otras métricas (Accuracy, Recall, F1, etc.)
+
+```{r}
+metrics_long <- metrics_test %>%
+  pivot_longer(cols = -Modelo, names_to = "Metrica", values_to = "Valor")
+
+ggplot(metrics_long, aes(x = reorder(Modelo, Valor), y = Valor)) +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(~ Metrica, scales = "free_x") +
+  labs(title = "Métricas en test por modelo", x = "Modelo", y = "Valor") +
+  theme_minimal()
+```
+
+## 8. Análisis detallado de los mejores modelos
+
+Podemos seleccionar, por ejemplo, el modelo con mejor AUC en test y mostrar su matriz de confusión y curva ROC.
+
+```{r}
+best_model_name <- metrics_test$Modelo[which.max(metrics_test$AUC)]
+best_model_name
+```
+
+```{r}
+best_res <- switch(
+  best_model_name,
+  "Tree_Factores" = res_tree_factors,
+  "Random_Forest" = res_rf_factors,
+  "GLM_Std" = res_glm_std,
+  "GLM_Std_MI" = res_glm_std_mi,
+  "GLMNet_Std" = res_glmnet_std,
+  "GLMNet_Std_MI" = res_glmnet_std_mi,
+  "XGB_MinMax" = res_xgb_minmax,
+  "XGB_MinMax_MI" = res_xgb_minmax_mi,
+  "KNN_MinMax" = res_knn_minmax,
+  "KNN_MinMax_MI" = res_knn_minmax_mi
+)
+```
+
+Matriz de confusión:
+
+```{r}
+best_res$cm
+```
+
+Curva ROC del mejor modelo
+
+```{r}
+plot(best_res$roc, main = paste("Curva ROC en test -", best_model_name))
+```
+
+## 9. Explicabilidad del mejor modelo mediante SHAP
+
+Hasta ahora hemos comparado los modelos únicamente a través de métricas globales (AUC, Accuracy, F1, etc.). Sin embargo, para un problema sensible como la depresión estudiantil también es importante entender **por qué** un modelo toma ciertas decisiones.
+
+Para ello vamos a utilizar **SHAP (SHapley Additive exPlanations)**, una familia de métodos basada en los valores de Shapley de la teoría de juegos cooperativos. Intuitivamente:
+
+-   Cada predicción del modelo se ve como el resultado de un “juego”.
+-   Cada variable de entrada es un “jugador”.
+-   El valor SHAP de una variable mide cuánto contribuye (positiva o negativamente) a desplazar la predicción desde un valor base (p. ej. la probabilidad media de depresión) hasta la predicción concreta para un estudiante.
+
+Ventajas de SHAP:
+
+-   Funciona con **cualquier tipo de modelo** (árboles, modelos lineales, KNN, XGBoost…).
+-   Permite explicaciones **locales** (a nivel de estudiante) y **globales** (qué variables son más importantes de media).
+-   Las gráficas SHAP son estándar en explicabilidad: *bar plot* y *summary* / *beeswarm plot*.
+
+En nuestro caso vamos a aplicar SHAP al mejor modelo en test según la métrica AUC (calculado en la sección anterior como best_model_name).
+
+### 9.1. Cálculo de valores SHAP para el mejor modelo
+
+Usaremos:
+
+-   *fastshap*: para calcular los valores SHAP.
+-   *shapviz*: para generar las gráficas estándar de SHAP.
+
+Primero, recuperamos el objeto del mejor modelo y los datos de entrada (sin la variable `Depression`) que le corresponden. No reentrenamos nada, solo reutilizamos lo que ya está en memoria.
+
+```{r}
+# Función auxiliar: devuelve modelo y datos según best_model_name
+
+get_model_and_data <- function(model_name) {
+  switch(model_name,
+    "Tree_Factores" = list(
+      model = model_tree_factors,
+      X_train = subset(factors_train, select = -Depression),
+      X_test = subset(factors_test, select = -Depression)
+    ),
+    "Random_Forest" = list(
+      model = model_rf_factors,
+      X_train = subset(factors_train, select = -Depression),
+      X_test = subset(factors_test, select = -Depression)
+    ),
+    "GLM_Std" = list(
+      model = model_glm_std,
+      X_train = subset(standard_train, select = -Depression),
+      X_test = subset(standard_test, select = -Depression)
+    ),
+    "GLM_Std_MI" = list(
+      model = model_glm_std_mi,
+      X_train = subset(standard_mi_train, select = -Depression),
+      X_test = subset(standard_mi_test, select = -Depression)
+    ),
+    "GLMNet_Std" = list(
+      model = model_glmnet_std,
+      X_train = subset(standard_train, select = -Depression),
+      X_test = subset(standard_test, select = -Depression)
+    ),
+    "GLMNet_Std_MI" = list(
+      model = model_glmnet_std_mi,
+      X_train = subset(standard_mi_train, select = -Depression),
+      X_test = subset(standard_mi_test, select = -Depression)
+    ),
+    "XGB_MinMax" = list(
+      model = model_xgb_minmax,
+      X_train = subset(minmax_train, select = -Depression),
+      X_test = subset(minmax_test, select = -Depression)
+    ),
+    "XGB_MinMax_MI" = list(
+      model = model_xgb_minmax_mi,
+      X_train = subset(minmax_mi_train, select = -Depression),
+      X_test = subset(minmax_mi_test, select = -Depression)
+    ),
+    "KNN_MinMax" = list(
+      model = model_knn_minmax,
+      X_train = subset(minmax_train, select = -Depression),
+      X_test = subset(minmax_test, select = -Depression)
+    ),
+    "KNN_MinMax_MI" = list(
+      model = model_knn_minmax_mi,
+      X_train = subset(minmax_mi_train, select = -Depression),
+      X_test = subset(minmax_mi_test, select = -Depression)
+    ),
+    stop("Modelo no reconocido: ", model_name)
+  )
+}
+```
+
+```{r}
+# Recuperamos el mejor modelo y sus datos asociados (ya existentes)
+
+best_info <- get_model_and_data(best_model_name)
+best_model <- best_info$model
+X_train <- best_info$X_train
+X_test <- best_info$X_test
+```
+
+Para SHAP necesitamos:
+
+-   Un conjunto de **background** (muestras de entrenamiento) para estimar el valor base.
+-   Un conjunto de observaciones que queremos **explicar** (usaremos parte del test).
+
+```{r}
+set.seed(123)
+
+# Limitamos el tamaño para que el cálculo sea razonable
+n_bg <- min(2000, nrow(X_train)) # background
+n_explain <- min(1000, nrow(X_test)) # puntos a explicar
+
+idx_bg <- sample(seq_len(nrow(X_train)), n_bg)
+idx_explain <- sample(seq_len(nrow(X_test)), n_explain)
+
+X_bg <- X_train[idx_bg, ]
+X_exp <- X_test[idx_explain, ]
+```
+
+Definimos ahora una función de predicción que devuelve la probabilidad de la clase positiva `Yes`, como espera `fastshap`, y calculamos los valores SHAP:
+
+```{r}
+pred_fun_yes <- function(object, newdata) {
+  predict(object, newdata = newdata, type = "prob")[, "Yes"]
+}
+
+# Cálculo de valores SHAP para el mejor modelo
+set.seed(123)
+
+shap_values <- fastshap::explain(
+  object       = best_model,
+  X            = X_bg,
+  newdata      = X_exp,
+  pred_wrapper = pred_fun_yes,
+  nsim         = 50,    # nº de muestras MC (compromiso precisión/tiempo)
+)
+
+# Objeto shapviz para facilitar las gráficas
+sv <- shapviz::shapviz(shap_values, X = X_exp)
+```
+
+### 9.2. Importancia global de variables
+
+#### 9.2.1. Bar plot de importancia SHAP
+
+La gráfica de **importancia global SHAP** muestra cuánto contribuye cada variable, en promedio, a las predicciones del modelo XGB_MinMax_MI. Una mayor magnitud del valor SHAP implica que la variable tiene más peso en la decisión del modelo.
+
+```{r}
+sv_importance(
+  sv,
+  kind = "bar",
+) + ggplot2::ggtitle(paste("Importancia global SHAP -", best_model_name))
+```
+
+En este caso, las tres variables más influyentes son:
+
+-   **Had.suicidal.thoughts**
+-   **Academic.Pressure**
+-   **Financial.Stress**
+
+Estas variables presentan diferencias muy marcadas respecto al resto, lo que indica que el modelo considera que son los factores que más modifican la probabilidad de que un estudiante presente depresión. Especialmente relevante es la primera, cuya contribución media supera ampliamente al resto, lo que sugiere que es un indicador fuertemente asociado al estado emocional del estudiante dentro del dataset.
+
+Otras variables como **Age**, **Dietary.Habits**, **Work.Study.Hours**, **Study.Satisfaction** o **Sleep.Duration** también influyen, pero con un impacto considerablemente menor. En cambio, factores como **Degree**, **Family.History.Mental.Illness** o **CGPA** apenas alteran la predicción, lo que indica que tienen poca relevancia para el modelo en este contexto específico.
+
+#### 9.2.2. Summary / beeswarm plot
+
+El **beeswarm plot de SHAP** ofrece una visión más rica que el barplot, ya que muestra cómo influyen los valores individuales de cada variable en las predicciones del modelo.
+
+Cada punto representa a un estudiante:
+
+-   La posición horizontal indica si ese estudiante aumenta o reduce la probabilidad estimada de depresión.
+-   El color muestra si el valor de la variable es alto (amarillo) o bajo (morado).
+
+```{r}
+sv_importance(
+  sv,
+  kind = "beeswarm",
+) + ggplot2::ggtitle(paste("Resumen SHAP (beeswarm) -", best_model_name))
+```
+
+Interpretación principal:
+
+-   En **Had.suicidal.thoughts**, los valores altos (amarillo) empujan las predicciones muy claramente hacia valores SHAP positivos, es decir, incrementan mucho la probabilidad estimada de depresión.
+-   En **Academic.Pressure** y **Financial.Stress**, también se observa que valores altos están asociados sistemáticamente con incrementos de riesgo.
+-   En variables como **Study.Satisfaction** o **Sleep.Duration**, ocurre lo contrario: los valores altos suelen desplazar la predicción hacia valores SHAP negativos, lo que implica un efecto protector.
+-   Las variables menos relevantes (**Degree**, **CGPA**…) muestran nubes más pequeñas y centradas en cero, lo que indica que apenas modifican la predicción independientemente de su valor.
+
+Este gráfico permite entender no solo qué variables son importantes, sino cómo y en qué dirección afectan al riesgo estimado por el modelo, proporcionando una visión rica y explicativa del comportamiento interno del clasificador.
+
+## 10. Conclusiones
+
+Tras completar el ciclo de vida del aprendizaje supervisado, desde el preprocesamiento hasta la interpretación del modelo, podemos extraer las siguientes conclusiones fundamentales sobre la predicción de la depresión estudiantil en este dataset:
+
+1.  **Selección del mejor modelo**: El modelo **XGBoost con selección de variables (XGB_MinMax_MI)** ha demostrado ser el más robusto.
+
+    -   Alcanzó el **mayor AUC (0.9213)** en el conjunto de test, superando ligeramente a los modelos lineales y más notablemente a los árboles de decisión simples y KNN.
+    -   Mantuvo un equilibrio excelente entre **Sensibilidad (0.88)** y **Precisión (0.85)**, lo cual es crítico en un contexto médico/psicológico: nos interesa detectar la mayor cantidad de casos reales de depresión (alta sensibilidad) sin generar un exceso de falsas alarmas.
+
+2.  **Competitividad de los modelos lineales**: Es destacable que la **Regresión Logística (GLM)** y la **Regularizada (GLMNet)** obtuvieron resultados extremadamente cercanos al XGBoost (AUC \~0.920). Esto sugiere que las relaciones entre los factores de riesgo y la depresión en este dataset son predominantemente lineales, aunque el XGBoost logró capturar sutiles no linealidades adicionales que le dieron la ventaja final.
+
+3.  **Factores de riesgo determinantes**: Gracias al análisis SHAP, hemos desmitificado la "caja negra" del modelo XGBoost. Los factores más determinantes para predecir depresión son, en orden de importancia:
+
+    -   **Pensamientos suicidas (`Had.suicidal.thoughts`)**: Es el predictor más fuerte. Su presencia dispara la probabilidad de clasificación positiva.
+    -   **Presión académica y estrés financiero**: Actúan como agravantes claros.
+    -   **Hábitos saludables**: Variables como la satisfacción con el estudio (`Study.Satisfaction`) y la duración del sueño (`Sleep.Duration`) actúan como factores protectores; valores altos en estas variables reducen drásticamente el riesgo predicho.
+
+4.  **Eficacia de la selección de variables**: Las versiones de los datasets con selección de características (`_MI`) no solo simplificaron los modelos eliminando ruido, sino que en el caso del XGBoost y KNN, ayudaron a mejorar o mantener el rendimiento, haciendo el modelo final más ligero y eficiente.
+
+A continuación, se presenta un gráfico resumen que ilustra la superioridad marginal pero consistente del modelo seleccionado frente a sus competidores en el conjunto de prueba no visto:
+
+```{r}
+# Crear una columna para resaltar el ganador
+metrics_test$Highlight <- ifelse(metrics_test$AUC == max(metrics_test$AUC), "Mejor Modelo", "Otros")
+
+ggplot(metrics_test, aes(x = reorder(Modelo, AUC), y = AUC, fill = Highlight)) +
+  geom_col(alpha = 0.8) +
+  coord_flip() +
+  scale_fill_manual(values = c("Mejor Modelo" = "#2E8B57", "Otros" = "gray70")) +
+  geom_text(aes(label = round(AUC, 4)), hjust = 1.1, color = "white", size = 3.5, fontface = "bold") +
+  labs(
+    title = "Resumen Final: Ranking de Modelos por AUC (Test)",
+    subtitle = "El modelo XGBoost (MinMax + MI) demuestra la mayor capacidad discriminatoria",
+    x = "Modelo Evaluado",
+    y = "Área Bajo la Curva (AUC)",
+    fill = "Estado"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+# ==============================================================================
+# FINALIZAR OPTIMIZACIÓN
+# ==============================================================================
+
+# Paramos el cluster y volvemos a modo secuencial para liberar memoria
+stopCluster(cl)
+registerDoSEQ()
+
+message("🛑 Procesos paralelos detenidos y memoria liberada.")
 ```

@@ -90,12 +90,10 @@ library(doParallel)
 # BLOQUE DE OPTIMIZACIÓN: PARALELIZACIÓN CON CPU (Intel Ultra 9)
 # ==============================================================================
 
-# 1. Detectar núcleos: Tu procesador tiene muchos, vamos a usarlos.
-# logical=FALSE intenta usar núcleos físicos para mayor estabilidad.
+# 1. Detectar núcleos:
 total_cores <- parallel::detectCores(logical = FALSE)
 
-# 2. Crear Cluster: Dejamos 2 núcleos libres para que Windows/VS Code no se bloqueen.
-# Si tienes 16 núcleos, usará 14 para R.
+# 2. Crear cluster: Dejamos 2 núcleos libres para que no se bloqueen.
 n_cores_uso <- max(1, total_cores - 2) 
 cl <- makePSOCKcluster(n_cores_uso)
 
@@ -913,21 +911,21 @@ Este gráfico permite entender no solo qué variables son importantes, sino cóm
 
 Tras completar el ciclo de vida del aprendizaje supervisado, desde el preprocesamiento hasta la interpretación del modelo, podemos extraer las siguientes conclusiones fundamentales sobre la predicción de la depresión estudiantil en este dataset:
 
-1.  **Selección del Mejor Modelo**:
+1.  **Selección del mejor modelo**:
     El modelo **XGBoost con selección de variables (XGB_MinMax_MI)** ha demostrado ser el más robusto.
     * Alcanzó el **mayor AUC (0.9213)** en el conjunto de test, superando ligeramente a los modelos lineales y más notablemente a los árboles de decisión simples y KNN.
     * Mantuvo un equilibrio excelente entre **Sensibilidad (0.88)** y **Precisión (0.85)**, lo cual es crítico en un contexto médico/psicológico: nos interesa detectar la mayor cantidad de casos reales de depresión (alta sensibilidad) sin generar un exceso de falsas alarmas.
 
-2.  **Competitividad de los Modelos Lineales**:
+2.  **Competitividad de los modelos lineales**:
     Es destacable que la **Regresión Logística (GLM)** y la **Regularizada (GLMNet)** obtuvieron resultados extremadamente cercanos al XGBoost (AUC ~0.920). Esto sugiere que las relaciones entre los factores de riesgo y la depresión en este dataset son predominantemente lineales, aunque el XGBoost logró capturar sutiles no linealidades adicionales que le dieron la ventaja final.
 
-3.  **Factores de Riesgo Determinantes**:
+3.  **Factores de riesgo determinantes**:
     Gracias al análisis SHAP, hemos desmitificado la "caja negra" del modelo XGBoost. Los factores más determinantes para predecir depresión son, en orden de importancia:
     * **Pensamientos suicidas (`Had.suicidal.thoughts`)**: Es el predictor más fuerte. Su presencia dispara la probabilidad de clasificación positiva.
     * **Presión Académica y Estrés Financiero**: Actúan como agravantes claros.
     * **Hábitos Saludables**: Variables como la satisfacción con el estudio (`Study.Satisfaction`) y la duración del sueño (`Sleep.Duration`) actúan como factores protectores; valores altos en estas variables reducen drásticamente el riesgo predicho.
 
-4.  **Eficacia de la Selección de Variables**:
+4.  **Eficacia de la selección de variables**:
     Las versiones de los datasets con selección de características (`_MI`) no solo simplificaron los modelos eliminando ruido, sino que en el caso del XGBoost y KNN, ayudaron a mejorar o mantener el rendimiento, haciendo el modelo final más ligero y eficiente.
 
 A continuación, se presenta un gráfico resumen que ilustra la superioridad marginal pero consistente del modelo seleccionado frente a sus competidores en el conjunto de prueba no visto:

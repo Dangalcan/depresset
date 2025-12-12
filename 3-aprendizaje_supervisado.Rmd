@@ -922,8 +922,8 @@ Tras completar el ciclo de vida del aprendizaje supervisado, desde el preprocesa
 3.  **Factores de riesgo determinantes**:
     Gracias al análisis SHAP, hemos desmitificado la "caja negra" del modelo XGBoost. Los factores más determinantes para predecir depresión son, en orden de importancia:
     * **Pensamientos suicidas (`Had.suicidal.thoughts`)**: Es el predictor más fuerte. Su presencia dispara la probabilidad de clasificación positiva.
-    * **Presión Académica y Estrés Financiero**: Actúan como agravantes claros.
-    * **Hábitos Saludables**: Variables como la satisfacción con el estudio (`Study.Satisfaction`) y la duración del sueño (`Sleep.Duration`) actúan como factores protectores; valores altos en estas variables reducen drásticamente el riesgo predicho.
+    * **Presión académica y estrés financiero**: Actúan como agravantes claros.
+    * **Hábitos saludables**: Variables como la satisfacción con el estudio (`Study.Satisfaction`) y la duración del sueño (`Sleep.Duration`) actúan como factores protectores; valores altos en estas variables reducen drásticamente el riesgo predicho.
 
 4.  **Eficacia de la selección de variables**:
     Las versiones de los datasets con selección de características (`_MI`) no solo simplificaron los modelos eliminando ruido, sino que en el caso del XGBoost y KNN, ayudaron a mejorar o mantener el rendimiento, haciendo el modelo final más ligero y eficiente.

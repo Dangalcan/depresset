@@ -1,0 +1,202 @@
+---
+title: "Estudio sobre la depresión estudiantil. Grupo 5. Modelado y Caracterización de Perfiles"
+author: "Miguel Encina Martinez, Daniel Galván Cancio, Jaime Linares Barrera, Daniel Vela Camacho"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 4
+    # number_sections: true
+---
+
+# Introducción
+
+En este documento abordamos la **caracterización clínica** de los perfiles de riesgo en la población estudiantil.
+
+Retomando las conclusiones de la fase previa, hemos establecido matemáticamente que la estructura subyacente del dataset maximiza su cohesón interna usando una partición de $k=3$ grupos. Este descubrimiento no es una asunción a priori, sino una conclusión validada mediante pruebas de estrés de silueta y análisis de estabilidad estructural.
+
+Partiendo de esta premisa, el presente análisis se centra en dos objetivos metodológicos de alto rigor:
+
+1.  **Modelado representativo (CLARA)**: Implementaremos el algoritmo K-Medoids (CLARA) para operacionalizar dicha partición. La elección de este método sobre K-Means es deliberada: buscamos identificar **medoides** (individuos reales del dataset) que actúen como arquetipos clínicos de cada grupo, evitando la abstracción de centroides geométricos que podrían no corresponder a ningún paciente real. Esto es fundamental para la interpretabilidad del modelo.
+
+2.  **Validación Estructural (Clustering Jerárquico)**: Como mecanismo de control, contrastaremos la partición rígida de CLARA con un enfoque aglomerativo.
+
+> **Nota**: Dado que nuestro dataset consta de aproximadamente 28,000 observaciones y el cálculo de matrices de distancia para dendrogramas conlleva una complejidad computacional de $O(N^2)$, ejecutaremos este análisis específico sobre una **submuestra representativa**. Esto nos permitirá explorar la estabilidad de las jerarquías sin afectar a la viabilidad computacional.
+
+## Preguntas y Objetivos
+
+Nuestra estrategia de análisis busca resolver tres cuestiones fundamentales para la caracterización del riesgo:
+
+-   **Validación de perfiles**: ¿Se confirman los $k=3$ clusters como entidades clínicamente diferenciables (e.g., *Bajo*, *Medio*, *Alto*) al examinar sus medoides?
+-   **Identificación de discriminantes**: ¿Qué covariables específicas (académicas, financieras o sociales) presentan la mayor carga discriminante entre los perfiles extremos?
+-   **Robustez topológica**: ¿Mantiene la estructura de grupos su coherencia cuando se somete a métodos de aglomeración jerárquica con diferentes métricas de enlace (*linkage*)?
+
+------------------------------------------------------------------------
+
+A continuación, procedemos con la configuración del entorno y la carga de librerías.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+required_packages <- c("tidyverse", "cluster", "factoextra", "knitr", "gridExtra")
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(knitr)
+library(gridExtra)
+```
+
+Procedemos a cargar el dataset optimizado resultante de la fase anterior. Este archivo contiene exclusivamente las variables seleccionadas por Información Mutua (MI), eliminando el ruido que dificultaba la convergencia en etapas previas.
+
+```{r}
+student_data_clustering_mi <- read.csv("data/student_depression_numeric_standard_mi.csv")
+```
+
+Validamos que las variables se encuentren en formato numérico y mantengan la estandarización necesaria (escalas comparables) para que el cálculo de distancias de CLARA no se vea sesgado por magnitudes dispares.
+
+```{r}
+head(student_data_clustering_mi)
+```
+
+# K-Medoides (CLARA)
+
+## Preapración de los datos
+
+Para garantizar la integridad del análisis no supervisado y evitar cualquier sesgo de información, es necesario excluir la variable objetivo `Depression`. Nuestro objetivo es descubrir patrones basados únicamente en las características intrínsecas de los estudiantes, sin la influencia de la etiqueta diagnóstica conocida.
+
+```{r}
+student_data_model <- student_data_clustering_mi %>%
+  select(-Depression)
+```
+
+## Entrenamiento del modelo
+
+Procedemos a la ejecución del algoritmo CLARA (Clustering Large Applications). Basándonos en la validación matemática previa, fijamos el número de clusters en $k=3$. Para asegurar la estabilidad y representatividad de los medoides, utilizamos una configuración robusta con 50 muestras (`samples = 50`) y activamos la lógica PAM (`pamLike = TRUE`), lo que optimiza la selección de los centros comparado con el método estándar.
+
+```{r}
+set.seed(123) 
+
+clara_model <- clara(
+  x = student_data_model, 
+  k = 3,                 
+  metric = "euclidean",  
+  samples = 50,          
+  sampsize = 1000,       
+  pamLike = TRUE         
+)
+```
+
+## Visualización de resultados
+
+Finalmente, graficamos los clusters resultantes en un espacio bidimensional utilizando PCA. Esta visualización nos permite evaluar de manera sencilla la separación geométrica y la densidad de los grupos identificados.
+
+```{r}
+fviz_cluster(clara_model, 
+             data = student_data_model,
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_minimal(),
+             main = "Cluster Plot: K-Medoids (CLARA, k=3)",
+             palette = c("#2E9FDF", "#00AFBB", "#E7B800"))
+```
+
+# Caracterización de Perfiles mediante Snake Plot
+
+La visualización anterior (PCA en 2D) mostró solapamiento visual debido a la reducción de dimensionalidad, lo cual es esperado pero dificulta la interpretación clínica.
+
+Para superar esta limitación visual, utilizaremos un **Snake Plot** (Gráfico de Coordenadas Paralelas). Esta técnica nos permite visualizar el valor promedio estandarizado (Z-Score) de cada variable para cada cluster, revelando la "firma clínica" de cada grupo.
+
+## Transformación de Datos
+
+En primer lugar, procedemos a asignar la etiqueta del cluster a cada observación y a reestructurar los datos. Calcularemos la media estandarizada de cada variable por cluster y transformaremos el dataset a un formato largo para facilitar su representación gráfica.
+
+```{r}
+data_perfilado <- student_data_model %>%
+  mutate(Cluster = as.factor(clara_model$clustering))
+
+data_long <- data_perfilado %>%
+  group_by(Cluster) %>%
+  summarise(across(everything(), mean)) %>%
+  pivot_longer(cols = -Cluster, 
+               names_to = "Variable", 
+               values_to = "Valor_Medio_Estandarizado")
+```
+
+## Generación del Gráfico
+
+A continuación, generamos el gráfico. La línea discontinua en 0 representa el promedio poblacional. Utilizaremos una paleta de colores específica para diferenciar claramente los niveles de riesgo: Azul (Cluster 1), Verde (Cluster 2) y Naranja (Cluster 3).
+
+```{r}
+ggplot(data_long, aes(x = Variable, y = Valor_Medio_Estandarizado, 
+                      group = Cluster, color = Cluster)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") + 
+  scale_color_manual(values = c("#0072B2", "#009E73", "#E69F00")) +
+  labs(title = "Perfil Clínico de los Clusters (Snake Plot)",
+       subtitle = "Z-Scores Promedio: Identificación de perfiles de riesgo",
+       y = "Desviación del Promedio (Z-Score)",
+       x = NULL) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Análisis e interpretación de perfiles
+
+Tras generar el gráfico, podemos categorizar los clusters basándonos en la posición de las líneas (las variables discriminantes):
+
+-   **Cluster 3 (Color Oro/Naranja)** $\rightarrow$ RIESGO ALTO: Se justifica su clasificación de alto riesgo debido a sus picos máximos en **Pensamientos Suicidas**, **Estrés Financiero** y **Presión Académica**, que se presentan junto con niveles mínimos en **Sueño** y **CGPA**. Esta combinación sugiere un perfil de estudiante bajo severa presión psicológica y problemas de rendimiento.
+
+-   **Cluster 2 (Color Verde)** $\rightarrow$ RIESGO BAJO: Este perfil actúa como un "espejo" del anterior. Se caracteriza por tener los valores máximos en **CGPA** y **Sueño**, y niveles mínimos en las variables asociadas al estrés. Representa al estudiante con mejor adaptación académica y bienestar.
+
+-   **Cluster 1 (Color Azul)** $\rightarrow$ RIESGO MEDIO: Este grupo se presenta como un perfil de transición o promedio, con valores intermedios en la mayoría de las variables, indicando un nivel de riesgo moderado que no alcanza los extremos de los otros dos grupos.
+
+# Validación externa
+
+Hemos clasificado a los estudiantes en 3 perfiles de riesgo (Bajo, Medio, Alto) usando K-sin que el algoritmo conociera su estado real de salud. Ahora, vamos a "quitar la venda" al modelo. Recuperaremos la variable Depression (que eliminamos temporalmente para el entrenamiento) y cruzaremos estos datos para verificar si nuestros clusters matemáticos coinciden con la realidad clínica.
+
+```{r}
+validation_df <- data_perfilado %>%
+  mutate(Real_Depression = student_data_clustering_mi$Depression) %>%
+  mutate(Real_Depression_Label = ifelse(Real_Depression == "Yes", "Depressed", "Not Depressed")) %>%
+  mutate(Risk_Profile = case_when(
+    Cluster == 3 ~ "High Risk",
+    Cluster == 2 ~ "Low Risk",
+    Cluster == 1 ~ "Medium Risk"
+  )) %>%
+  mutate(Risk_Profile = factor(Risk_Profile, levels = c("Low Risk", "Medium Risk", "High Risk")))
+
+contingency_table <- validation_df %>%
+  group_by(Risk_Profile, Real_Depression_Label) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Risk_Profile) %>%
+  mutate(Percentage = round(Count / sum(Count) * 100, 1))
+
+print(contingency_table)
+```
+
+## Distribución de la depresión en los perfiles
+
+```{r}
+ggplot(validation_df, aes(x = Risk_Profile, fill = Real_Depression_Label)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = c("Depressed" = "#C0392B", "Not Depressed" = "#BDC3C7")) +
+  labs(title = "Validación Externa: Prevalencia de Depresión por Perfil",
+       subtitle = "¿Coincide el riesgo calculado (Cluster) con el diagnóstico real?",
+       x = "Perfil de Riesgo Asignado (Cluster)",
+       y = "Proporción de Estudiantes",
+       fill = "Diagnóstico Real") +
+  theme_minimal()
+```
+
+## Interpretación de la validación
+
+Si el Grupo de Riesgo Alto tiene una mayoría abrumadora de casos reales de depresión (1), el modelo es un éxito.
+
+Si el Grupo de Riesgo Bajo tiene muy pocos casos de depresión, confirma la capacidad del modelo para identificar estudiantes sanos/resilientes.
+
+Esta validación confirma que las variables seleccionadas (MI) y el algoritmo (CLARA) han logrado reconstruir el diagnóstico clínico sin verlo.

@@ -33,3 +33,6 @@ Se debe tener en cuenta al exponer el análisis realizado:
 * Conclusiones, dificultades, comentarios, etc.
 
 En resumen, seguir la siguiente rúbrica: Rubrica.xlsx
+
+[Presentación](https://docs.google.com/presentation/d/1WM8TWYhx2RNFehmAqm4xMepOVs4PO46ejPoxJsZ2lpQ/edit?usp=sharing): con la versión llamada `VERSIÓN ENTREGA`, del 13 de Diciembre de 2025 a las 15:42.
+

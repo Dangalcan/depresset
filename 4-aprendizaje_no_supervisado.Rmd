@@ -1,0 +1,637 @@
+---
+title: "Estudio sobre la depresión estudiantil. Grupo 5. Aprendizaje no supervisado"
+author: "Miguel Encina Martinez, Daniel Galván Cancio, Jaime Linares Barrera, Daniel Vela Camacho"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 4
+    # number_sections: true
+---
+
+# Aprendizaje no supervisado
+
+En este cuaderno abordamos la fase de **aprendizaje no supervisado** del estudio, cuyo objetivo es descubrir **patrones latentes** y **estructuras de similitud** entre estudiantes sin utilizar inicialmente la etiqueta `Depression`. A diferencia del aprendizaje supervisado, aquí no buscamos predecir directamente una variable objetivo, sino **identificar perfiles** y **relaciones frecuentes** entre factores académicos, personales y de estilo de vida que puedan ayudar a interpretar el fenómeno de la depresión desde una perspectiva exploratoria.
+
+El análisis se articula en dos bloques complementarios:
+
+1.  **Clustering (segmentación de perfiles)**: Aplicamos técnicas de agrupamiento basadas en distancias para detectar grupos de estudiantes con características similares. Dado el tamaño del dataset (≈28.000 registros) y su alta dimensionalidad, combinamos: un diagnóstico inicial sobre el dataset estandarizado completo, un análisis de dimensionalidad que muestra dispersión de la varianza (alta entropía), y una reducción de variables mediante Información Mutua (MI) para mejorar la separabilidad sin perder interpretabilidad. Finalmente, se emplea CLARA (K-medoids) por sus ventajas computacionales y robustez frente al ruido y a los outliers.
+
+2.  **Reglas de asociación (patrones de co-ocurrencia)**: Una vez identificados perfiles, utilizamos el algoritmo Apriori para extraer combinaciones de factores que aparecen con frecuencia y que se asocian a `Depression=Yes`. Este enfoque permite identificar “patrones de riesgo” interpretables como configuraciones de factores que tienden a aparecer simultáneamente.
+
+En conjunto, el objetivo de este cuaderno es aportar una **visión explicativa y estructural**:
+
+-   segmentar estudiantes en perfiles de riesgo basados en sus características, y
+-   detectar combinaciones concretas de variables que suelen acompañar la depresión en el dataset.
+
+Cargamos las librerías necesarias:
+
+```{r}
+# install.packages("tidyverse")
+library(tidyverse)   
+
+# install.packages("cluster")
+library(cluster)  
+
+# install.packages("factoextra")
+library(factoextra)
+
+# install.packages("knitr")
+library(knitr)  
+
+# install.packages("gridExtra")
+library(gridExtra)
+
+# install.packages("arules")
+library(arules)
+
+# install.packages("arulesViz")
+library(arulesViz)
+
+# install.packages("stringr")
+library(stringr)
+
+# install.packages("kableExtra")
+library(kableExtra)
+```
+
+## 1. Selección del valor K
+
+El objetivo de este apartado es determinar el número óptimo de clusters ($k$) para el análisis de segmentación. Para ello, emplearemos la métrica de **Suma de Cuadrados Intra-Cluster (WSS)**, buscando identificar el punto de inflexión o "codo" en la curva de compactación.
+
+El análisis inicial se realiza sobre el dataset completo, el cual ha sido previamente sometido a un proceso de **One-Hot Encoding** para las variables categóricas y a una **estandarización** completa (media 0 y desviación típica 1). Esta transformación es crítica para cualquier algoritmo de aprendizaje no supervisado basado en distancias (como K-Means), ya que asegura que todas las variables contribuyan equitativamente al cálculo de similitud, independientemente de sus escalas originales.
+
+### 1.1. Carga y preparación de datos
+
+Procedemos a cargar el dataset preprocesado y estandarizado:
+
+```{r}
+student_data <- read.csv("./data/student_depression_numeric_standard.csv")
+```
+
+Verificamos la estructura e integridad del dataset antes de proceder:
+
+```{r}
+head(student_data)
+```
+
+Dado que el objetivo es realizar un **aprendizaje no supervisado** para descubrir patrones subyacentes, excluimos la variable objetivo `Depression` del conjunto de entrenamiento. Esta variable se reservará para fases posteriores de validación externa mediante conocimiento experto.
+
+```{r}
+student_data_clustering <- student_data %>% 
+  select(-Depression)
+```
+
+### 1.2. Determinación de K mediante el Método del Codo (WSS)
+
+La **Suma de Cuadrados Intra-Cluster (WSS)** cuantifica la variabilidad interna de los grupos: un valor menor indica clusters más compactos y homogéneos.
+
+Matemáticamente, para una partición en $k$ clusters, el WSS se define como:
+
+$$
+WSS = \sum_{j=1}^{k} \sum_{x_i \in C_j} \|x_i - \mu_j\|^2
+$$
+
+Donde $C_j$ representa el cluster $j$, $\mu_j$ es el centroide de dicho cluster, y $x_i$ son las observaciones asignadas a él.
+
+Buscamos identificar el "codo" de la curva: el punto a partir del cual el incremento en el número de clusters deja de aportar una reducción sustancial en la variabilidad interna (rendimientos decrecientes).
+
+Calculamos el WSS para $k \in [1, 10]$ utilizando el algoritmo K-Means:
+
+```{r}
+vector_compactacion_full <- numeric(10)
+
+set.seed(123)
+for(i in 1:10){
+  km_modelo <- kmeans(student_data_clustering, 
+                      centers = i, 
+                      iter.max = 500, 
+                      algorithm = "MacQueen", 
+                      nstart = 20)
+  vector_compactacion_full[i] <- km_modelo$tot.withinss
+}
+```
+
+Visualizamos la evolución de la compactación:
+
+```{r}
+elbow_data <- data.frame(
+  k = 1:10,
+  wss = vector_compactacion_full
+)
+
+ggplot(elbow_data, aes(x = k, y = wss)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_point(color = "steelblue", size = 3) +
+  labs(title = "Método del Codo (WSS)", 
+       subtitle = "Cálculo iterativo manual (MacQueen | nstart=20)",
+       x = "Número de clusters (k)",
+       y = "Suma de cuadrados intra-cluster (WSS)") +
+  theme_minimal()
+```
+
+#### 1.2.1. Justificación de parámetros del algoritmo
+
+Se han ajustado los parámetros para priorizar la estabilidad y evitar óptimos locales en este espacio de alta dimensionalidad:
+
+-   **Algoritmo MacQueen**: Seleccionado por su actualización *online* de centroides, ofreciendo una convergencia más robusta en datos complejos.
+-   **`iter.max = 500`**: Incrementado para prevenir paradas prematuras y alertas de convergencia típicas de la configuración por defecto.
+-   **`nstart = 20`**: Crítico para mitigar el riesgo de óptimos locales y el ruido dimensional mediante múltiples reinicios aleatorios.
+
+#### 1.2.2. Análisis de la curva de compactación
+
+Como podemos ver en los datos graficados no es posible determinar un codo claro, por lo que procedemos a realizar el análisis de la métrica de Silhoutte a medida que incrementamos el número de clusters.
+
+### 1.3. Determinación de K mediante Silhoutte
+
+El segundo criterio que utilizamos es el **Coeficiente de Silueta** (Silhouette Coefficient), una métrica que evalúa simultáneamente la cohesión interna de cada cluster y la separación respecto a los clusters vecinos.
+
+Para cada observación $i$, el coeficiente de silueta $s(i)$ se calcula como:
+
+$$
+s(i) = \frac{b(i) - a(i)}{\max\{a(i), b(i)\}}
+$$
+
+donde:
+
+-   $a(i)$: distancia media de la observación $i$ a todas las demás observaciones de su mismo cluster (cohesión).
+
+-   $b(i)$: distancia media mínima de la observación $i$ a todas las observaciones del cluster más cercano que no es el suyo (separación).
+
+-   El valor de $s(i)$ oscila entre -1 y 1:
+
+Valores **cercanos a +1** indican que la observación está **bien asignada** a su cluster.
+
+Valores **cercanos a 0** sugieren que la observación se encuentra en la **frontera entre clusters**.
+
+Valores **negativos** indican una posible **asignación errónea**.
+
+#### 1.3.1. Uso de CLARA
+
+El cálculo estándar del coeficiente de *silhoutte* requiere construir una matriz de disimilitud (distancias) de tamaño $N \times N$. Dado que nuestro dataset contiene aproximadamente $N \approx 28,000$ observaciones, esto implicaría una matriz de $28,000 \times 28,000 = 784,000,000$ elementos.
+
+Desde el punto de vista computacional, esto presenta dos problemas críticos:
+
+-   **Complejidad espacial**: $O(N^2)$ en memoria. Almacenar esta matriz requeriría aproximadamente 6 GB de RAM solo para las distancias (asumiendo valores de 8 bytes en doble precisión), lo cual desbordaría la memoria disponible en la mayoría de sistemas.
+
+-   **Complejidad temporal**: El cálculo de todas las distancias por pares tiene complejidad $O(N^2)$, haciendo el proceso extremadamente lento para datasets de este tamaño.
+
+Por este motivo, optamos por el algoritmo **CLARA (Clustering Large Applications)**. CLARA es una extensión del algoritmo PAM (Partitioning Around Medoids) diseñada específicamente para trabajar con grandes volúmenes de datos. Su estrategia consiste en:
+
+1.  Extraer múltiples submuestras aleatorias del dataset completo.
+2.  Aplicar el algoritmo PAM a cada submuestra para identificar medoides candidatos.
+3.  Evaluar la calidad de cada partición sobre el dataset completo.
+4.  Seleccionar la mejor partición encontrada.
+
+Este enfoque permite aproximar la solución óptima global de manera eficiente y robusta, evitando el cuello de botella de memoria y tiempo que supondría el cálculo exacto sobre todos los datos.
+
+Procedemos a calcular y visualizar el coeficiente de silueta medio para diferentes valores de $k$ utilizando CLARA:
+
+```{r}
+fviz_nbclust(student_data_clustering, clara, method = "silhouette", k.max = 10) +
+  labs(
+    title = "Método de la Silueta",
+    subtitle = "Optimizado para grandes volúmenes de datos",
+    x = "Número de clústeres (k)",
+    y = "Anchura de silueta media"
+  ) +
+  theme_minimal()
+```
+
+#### 1.3.2. Análisis de la curva de Silhouette
+
+En los datos graficados, hemos de encontrar un maximo de la anchura de silueta media. Como podemos ver en los datos, la tendencia de los datos es creciente, por lo que no encontramos un máximo local / máximo global claro, que nos permita garantizar un valor determinado de $k$.
+
+### 1.4. Análisis de la dimensionalidad
+
+```{r}
+# diagnóstico de varianza (PCA)
+pca_check <- prcomp(student_data_clustering, scale. = FALSE)
+
+fviz_eig(pca_check, 
+         ncp = 15, 
+         addlabels = TRUE, 
+         barfill = "#2E9FDF", 
+         linecolor = "black") +
+  labs(title = "Sedimentación de Varianza (Dataset Completo)", 
+       subtitle = "La baja varianza explicada por componentes individuales sugiere alta entropía/ruido",
+       y = "% Varianza Explicada") +
+  theme_minimal()
+```
+
+La gráfica muestra una clara "dilución de la información". Las primeras componentes explican un porcentaje muy bajo de la varianza total, lo que confirma que la información está fragmentada en demasiadas dimensiones (ruido), dificultando la formación de clusters densos.
+
+Para resolver esto, **no utilizaremos reducción por proyección** (como PCA) para no perder **interpretabilidad clínica**. En su lugar, justificamos el uso del dataset reducido mediante **Información Mutua (Mutual Information)**.
+
+MI nos permite filtrar las variables irrelevantes (ruido) y conservar solo aquellas con una dependencia estadística real con la estructura latente de los datos, reduciendo el espacio de búsqueda para K-Means/CLARA.
+
+### 1.5. Determinación de k en el dataset reducido (MI)
+
+Procedemos a cargar el dataset resultante de la selección de características basada en Información Mutua.
+
+```{r}
+student_data_clustering_mi <-read.csv("./data/student_depression_numeric_standard_mi.csv")
+head(student_data_clustering_mi)
+```
+
+#### 1.5.1. Estrategia de evaluación: Enfoque en Silhouette
+
+Para esta determinación final, descartamos el criterio del codo (WSS) dada su ambigüedad previa y basamos la decisión exclusivamente en el **Coeficiente de Silhouette**. Esta métrica nos permite cuantificar objetivamente la calidad de la estructura encontrada, buscando la partición que maximice la distinción entre grupos.
+
+Metodológicamente, mantenemos el uso de **CLARA** no por preferencia algorítmica, sino por estricta necesidad computacional: el volumen de datos ($N \approx 28,000$) implica una complejidad $O(N^2)$ en el cálculo de distancias. CLARA nos permite estimar la silueta de forma eficiente mediante muestreo, eludiendo las limitaciones de memoria de los algoritmos tradicionales.
+
+#### 1.5.2. Estrategia de validación robusta: Prueba de estrés del muestreo
+
+Es importante recordar que CLARA es un algoritmo estocástico; basa sus resultados en submuestras aleatorias del dataset original. Esto implica que una sola ejecución puede no ser fiable para determinar un $k$ definitivo, ya que podría estar sesgada por la muestra específica seleccionada.
+
+Para mitigar este riesgo, implementamos una **prueba de estrés del muestreo**. Compararemos la estabilidad de la métrica de Silueta bajo tres configuraciones de rigor creciente:
+
+1.  **Baja**: Muestreo rápido (riesgo de óptimos locales).
+2.  **Media**: Configuración estándar.
+3.  **Alta**: Muestreo intensivo (aproximación al óptimo global).
+
+A continuación, ejecutamos el análisis de sensibilidad:
+
+```{r}
+resultados_sensibilidad <- data.frame()
+k_rango <- 2:6
+
+set.seed(123)
+
+for(k in k_rango){
+  
+  modelo_bajo <- clara(student_data_clustering_mi, k = k, samples = 5, sampsize = 200)
+  sil_bajo <- modelo_bajo$silinfo$avg.width
+  
+  modelo_medio <- clara(student_data_clustering_mi, k = k, samples = 20, sampsize = 1000)
+  sil_medio <- modelo_medio$silinfo$avg.width
+  
+  modelo_alto <- clara(student_data_clustering_mi, k = k, samples = 50, sampsize = 3000)
+  sil_alto <- modelo_alto$silinfo$avg.width
+  
+  resultados_sensibilidad <- rbind(resultados_sensibilidad, data.frame(
+    k = k,
+    Baja = sil_bajo,
+    Media = sil_medio,
+    Alta = sil_alto
+  ))
+}
+```
+
+Finalmente, visualizamos la convergencia de la métrica de silueta para evaluar la robustez de los clusters sugeridos:
+
+```{r}
+resultados_long <- resultados_sensibilidad %>%
+  pivot_longer(cols = c("Baja", "Media", "Alta"), names_to = "Precision", values_to = "Silueta")
+
+ggplot(resultados_long, aes(x = k, y = Silueta, color = Precision)) +
+  geom_line(size = 1) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("Baja" = "#E69F00", "Media" = "#56B4E9", "Alta" = "#009E73")) +
+  labs(title = "Estabilidad de la Silueta según Parámetros de Muestreo (CLARA)",
+       subtitle = "Dataset reducido por MI | Comparativa de robustez",
+       y = "Anchura de Silueta Media") +
+  theme_minimal()
+```
+
+El análisis de sensibilidad (*stress-test*) nos permite extraer dos conclusiones fundamentales que validan la robustez de la solución:
+
+1.  **Validación para usar K-Medoids**:
+
+    Observamos una convergencia absoluta en $k=3$, donde las tres configuraciones de muestreo (Baja, Media y Alta) coinciden casi perfectamente. Esta estabilidad es crucial: demuestra que la estructura de tres grupos es intrínseca a los datos y no un artefacto del azar. Además, valida la idoneidad del enfoque K-Medoids (CLARA) frente a métodos más sensibles como K-Means; la persistencia de los grupos frente al remuestreo sugiere que existen "individuos prototípicos" (medoides) muy claros y resistentes al ruido, lo que justifica continuar con este algoritmo.
+
+2.  **Hipótesis de Dominio**:
+
+    La aparición natural de tres grupos diferenciados apoya estadísticamente una hipótesis clínica para el estudio de la depresión. Es altamente posibleque esta estructura basada en tres grupos refleje una agrupación basada en la severidad:
+
+    -   **Grupo 1:** Riesgo Bajo / Control.
+
+    -   **Grupo 2:** Riesgo Moderado / Vulnerable.
+
+    -   **Grupo 3:** Riesgo Alto / Crítico.
+
+Por ello es que concluimos realizar el modelado final utilizando el algoritmo CLARA con $k=3$, con el objetivo de extraer los medoides y caracterizar los perfiles de riesgo en la siguiente fase del estudio.
+
+## 2. Preguntas y objetivos
+
+Nuestra estrategia de análisis busca resolver tres cuestiones fundamentales para la caracterización del riesgo:
+
+-   **Validación de perfiles**: ¿Se confirman los $k=3$ clusters como entidades clínicamente diferenciables (e.g., *Bajo*, *Medio*, *Alto*) al examinar sus medoides?
+-   **Identificación de discriminantes**: ¿Qué covariables específicas (académicas, financieras o sociales) presentan la mayor carga discriminante entre los perfiles extremos?
+-   **Robustez topológica**: ¿Mantiene la estructura de grupos su coherencia cuando se somete a métodos de aglomeración jerárquica con diferentes métricas de enlace (*linkage*)?
+
+## 3. K-Medioides
+
+### 3.1. Preparación de los datos
+
+Procedemos a cargar el dataset optimizado resultante de la fase anterior. Este archivo contiene exclusivamente las variables seleccionadas por Información Mutua (MI), eliminando el ruido que dificultaba la convergencia en etapas previas.
+
+```{r}
+student_data_clustering_mi <- read.csv("data/student_depression_numeric_standard_mi.csv")
+```
+
+Validamos que las variables se encuentren en formato numérico y mantengan la estandarización necesaria (escalas comparables) para que el cálculo de distancias de CLARA no se vea sesgado por magnitudes dispares.
+
+```{r}
+head(student_data_clustering_mi)
+```
+
+Para garantizar la integridad del análisis no supervisado y evitar cualquier sesgo de información, es necesario excluir la variable objetivo `Depression`. Nuestro objetivo es descubrir patrones basados únicamente en las características intrínsecas de los estudiantes, sin la influencia de la etiqueta diagnóstica conocida.
+
+```{r}
+student_data_model <- student_data_clustering_mi %>%
+  select(-Depression)
+```
+
+### 3.2. Entrenamiento del modelo
+
+Procedemos a la ejecución del algoritmo CLARA (Clustering Large Applications). Basándonos en la validación matemática previa, fijamos el número de clusters en $k=3$. Para asegurar la estabilidad y representatividad de los medoides, utilizamos una configuración robusta con 50 muestras (`samples = 50`) y activamos la lógica PAM (`pamLike = TRUE`), lo que optimiza la selección de los centros comparado con el método estándar.
+
+```{r}
+set.seed(123) 
+
+clara_model <- clara(
+  x = student_data_model, 
+  k = 3,                 
+  metric = "euclidean",  
+  samples = 50,          
+  sampsize = 1000,       
+  pamLike = TRUE         
+)
+```
+
+### 3.3. Visualización de resultados
+
+Finalmente, graficamos los clusters resultantes en un espacio bidimensional utilizando PCA. Esta visualización nos permite evaluar de manera sencilla la separación geométrica y la densidad de los grupos identificados.
+
+```{r}
+fviz_cluster(clara_model, 
+             data = student_data_model,
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_minimal(),
+             main = "Cluster Plot: K-Medoids (CLARA, k=3)",
+             palette = c("#F39C12", "#27AE60", "#C0392B"))
+```
+
+### 3.4. Caracterización de perfiles mediante Snake Plot
+
+La visualización anterior (PCA en 2D) mostró solapamiento visual debido a la reducción de dimensionalidad, lo cual es esperado pero dificulta la interpretación clínica.
+
+Para superar esta limitación visual, utilizaremos un **Snake Plot** (Gráfico de Coordenadas Paralelas). Esta técnica nos permite visualizar el valor promedio estandarizado (Z-Score) de cada variable para cada cluster, revelando la "firma clínica" de cada grupo.
+
+#### 3.4.1. Transformación de datos
+
+En primer lugar, procedemos a asignar la etiqueta del cluster a cada observación y a reestructurar los datos. Calcularemos la media estandarizada de cada variable por cluster y transformaremos el dataset a un formato largo para facilitar su representación gráfica.
+
+```{r}
+data_perfilado <- student_data_model %>%
+  mutate(Cluster = as.factor(clara_model$clustering))
+
+data_long <- data_perfilado %>%
+  group_by(Cluster) %>%
+  summarise(across(everything(), mean)) %>%
+  pivot_longer(cols = -Cluster, 
+               names_to = "Variable", 
+               values_to = "Valor_Medio_Estandarizado")
+```
+
+#### 3.4.2. Generación del gráfico
+
+A continuación, generamos el gráfico. La línea discontinua en 0 representa el promedio poblacional. Utilizaremos una paleta de colores semántica ("Semáforo de Riesgo") para diferenciar claramente los niveles de urgencia:
+
+```{r}
+ggplot(data_long, aes(x = Variable, y = Valor_Medio_Estandarizado, 
+                      group = Cluster, color = Cluster)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") + 
+  scale_color_manual(values = c("#F39C12", "#27AE60", "#C0392B"), 
+                     labels = c("Medium Risk", "Low Risk", "High Risk")) +
+  labs(title = "Perfil Clínico de los Clusters (Snake Plot)",
+       subtitle = "Z-Scores Promedio: Identificación de perfiles de riesgo",
+       y = "Desviación del Promedio (Z-Score)",
+       x = NULL) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+#### 3.4.3. Análisis e interpretación de perfiles
+
+Tras generar el gráfico, podemos categorizar los clusters basándonos en la posición de las líneas (las variables discriminantes) y su color asignado:
+
+-   **Cluster 3 (Rojo Intenso)** $\rightarrow$ **RIESGO ALTO (Peligro/Urgencia)**: Se justifica su clasificación de alto riesgo debido a sus picos máximos en **Pensamientos Suicidas**, **Estrés Financiero** y **Presión Académica**, que se presentan junto con niveles mínimos en **Sueño** y **CGPA**. Esta combinación sugiere un perfil de estudiante bajo severa presión psicológica y problemas de rendimiento.
+
+-   **Cluster 1 (Naranja/Ámbar)** $\rightarrow$ **RIESGO MEDIO (Alerta/Transición)**: Este grupo se presenta como un perfil de transición con valores intermedios. No es un grupo "sano", sino una zona de alerta que podría derivar en riesgo alto si los estresores aumentan.
+
+-   **Cluster 2 (Verde)** $\rightarrow$ **RIESGO BAJO (Salud/Resiliencia)**: Este perfil actúa como un "espejo" del anterior. Se caracteriza por tener los valores máximos en **CGPA** y **Sueño**, y niveles mínimos en las variables asociadas al estrés. Representa al estudiante con mejor adaptación académica y bienestar.
+
+### 3.5. Validación externa
+
+Una vez hemos detectado **quién** está en riesgo, el siguiente paso crítico es validar si nuestra "brújula matemática" apunta en la dirección correcta.
+
+Hemos clasificado a los estudiantes en 3 perfiles de riesgo (Bajo, Medio, Alto) usando K-Medoids sin que el algoritmo conociera su estado real de salud. Ahora, procedemos a **"quitar la venda"** al modelo. Recuperaremos la variable `Depression` (que eliminamos temporalmente para el entrenamiento) y cruzaremos estos datos para verificar si nuestros clusters matemáticos coinciden con la realidad clínica.
+
+```{r}
+validation_df <- data_perfilado %>%
+  mutate(Real_Depression = student_data_clustering_mi$Depression) %>%
+  mutate(Real_Depression_Label = ifelse(Real_Depression == "Yes", "Depressed", "Not Depressed")) %>%
+  mutate(Risk_Profile = case_when(
+    Cluster == 3 ~ "High Risk",
+    Cluster == 2 ~ "Low Risk",
+    Cluster == 1 ~ "Medium Risk"
+  )) %>%
+  mutate(Risk_Profile = factor(Risk_Profile, levels = c("Low Risk", "Medium Risk", "High Risk")))
+
+contingency_table <- validation_df %>%
+  group_by(Risk_Profile, Real_Depression_Label) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Risk_Profile) %>%
+  mutate(Percentage = round(Count / sum(Count) * 100, 1))
+
+print(contingency_table)
+```
+
+#### 3.5.1. Distribución de la depresión en los perfiles
+
+```{r}
+ggplot(validation_df, aes(x = Risk_Profile, fill = Real_Depression_Label)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = c("Depressed" = "#C0392B", "Not Depressed" = "#BDC3C7")) +
+  labs(title = "Validación Externa: Prevalencia de Depresión por Perfil",
+       subtitle = "¿Coincide el riesgo calculado (Cluster) con el diagnóstico real?",
+       x = "Perfil de Riesgo Asignado (Cluster)",
+       y = "Proporción de Estudiantes",
+       fill = "Diagnóstico Real") +
+  theme_minimal()
+```
+
+#### 3.5.2. Interpretación de los resultados
+
+La confrontación de los clusters con los diagnósticos reales (`Real_Depression_Label`) valida la capacidad predictiva del modelo y revela una estructura de riesgo polarizada:
+
+1.  **Alta Discriminación del Perfil Sano:** El modelo demuestra una excelente especificidad al aislar el perfil **"Low Risk"**, donde la prevalencia de depresión es mínima (**12.6%**). Esto valida su utilidad como herramienta para descartar dichos casos con seguridad.
+
+2.  **No Linealidad del Riesgo:** Se observa un salto drástico, no gradual, en la patología. El grupo **"Medium Risk"** presenta una prevalencia del **70.5%**, una cifra alarmantemente cercana al **80.6%** del **"High Risk"**.
+
+> El perfil "Medio" no representa una patología leve, sino un **estado crítico latente**. Los datos sugieren que, una vez superados ciertos umbrales de estrés (académico o financiero), la probabilidad de depresión se dispara.
+
+## 4. Reglas de asociación
+
+Sabiendo **quiénes** son los estudiantes en riesgo y habiendo validado la gravedad de su situación, ahora buscamos la **causa raíz** del problema.
+
+¿Qué combinaciones específicas de factores detonan esta depresión? Para responder a esto, utilizamos técnicas de **Reglas de Asociación** con el algoritmo **Apriori**. El objetivo no es predecir un valor numérico, sino identificar combinaciones de factores (por ejemplo: *dieta + sueño + presión académica*) que actúan como "cócteles peligrosos" para la salud mental.
+
+Cargamos el dataset original asegurando que las cadenas de texto se interpreten como factores, lo cual facilita el análisis categórico posterior.
+
+```{r}
+data_raw <- read.csv("data/student_depression_factors.csv", stringsAsFactors = TRUE)
+
+```
+
+Antes de aplicar el algoritmo, es fundamental revisar la naturaleza de las variables. El algoritmo Apriori requiere variables categóricas (factores), por lo que debemos identificar qué columnas son numéricas (y necesitarán discretización) y cuáles tienen una cardinalidad excesiva que podría introducir ruido.
+
+```{r}
+str(data_raw)
+
+summary(data_raw[, c("Age", "CGPA", "Work.Study.Hours","City")])
+```
+
+Basándonos en la inspección anterior, procedemos a descartar la variable `City`. Su alta cardinalidad fragmentaría el análisis generando reglas geográficas demasiado específicas y poco representativas del comportamiento general. Mantenemos el resto de variables demográficas, académicas y de hábitos para buscar patrones transversales.
+
+```{r}
+data_selected <- data_raw %>%
+  select(-City)
+```
+
+Para que el algoritmo Apriori funcione, debemos transformar las variables numéricas continuas en rangos categóricos. Definimos los cortes basándonos en criterios académicos y biológicos: la edad se agrupa por etapas universitarias, el CGPA (rendimiento) en niveles de desempeño, y las horas de trabajo/estudio en carga laboral.
+
+```{r}
+data_discretized <- data_selected %>%
+  mutate(
+    Age_Group = cut(Age, 
+                    breaks = c(-Inf, 18, 22, Inf), 
+                    labels = c("Minor", "Undergrad", "Senior")),
+    
+    CGPA_Level = cut(CGPA, 
+                     breaks = c(-Inf, 6.5, 8.5, Inf), 
+                     labels = c("Low", "Medium", "High")),
+    
+    Work_Load = cut(Work.Study.Hours, 
+                    breaks = c(-Inf, 2, 6, Inf), 
+                    labels = c("Low", "Medium", "High"))
+  ) %>%
+  select(-Age, -CGPA, -Work.Study.Hours)
+```
+
+Las variables restantes contienen códigos numéricos (escalas 1-5 o binarios 0/1) que no son interpretables directamente por el algoritmo. Convertimos estas escalas en factores con etiquetas semánticas claras (ej. de "5" a "Critical") y estandarizamos el resto de variables cualitativas para asegurar que todas sean tratadas como factores.
+
+```{r}
+data_transformed <- data_discretized %>%
+  mutate(
+    Academic_Pressure = factor(Academic.Pressure, levels = 0:5, 
+                               labels = c("None", "Min", "Low", "Moderate", "High", "Very High")),
+    
+    Study_Satisfaction = factor(Study.Satisfaction, levels = 0:5, 
+                                labels = c("None", "Min", "Low", "Moderate", "High", "Very High")),
+    
+    Financial_Stress = factor(Financial.Stress, levels = 1:5, 
+                              labels = c("Min", "Low", "Moderate", "High", "Critical")),
+    
+    Suicidal_Thoughts = factor(Had.suicidal.thoughts, levels = c(0, 1), 
+                               labels = c("No", "Yes")),
+    
+    Family_History = factor(Family.History.Mental.Illness, levels = c(0, 1), 
+                            labels = c("No", "Yes")),
+    
+    Sleep_Duration = as.factor(Sleep.Duration),
+    Dietary_Habits = as.factor(Dietary.Habits),
+    Degree = as.factor(Degree),
+    Gender = as.factor(Gender),
+    Depression = as.factor(Depression)
+  ) %>%
+  select(Academic_Pressure, Study_Satisfaction, Financial_Stress, 
+         Suicidal_Thoughts, Family_History, Sleep_Duration, 
+         Dietary_Habits, Degree, Gender, Depression,
+         Age_Group, CGPA_Level, Work_Load)
+
+```
+
+El algoritmo Apriori no trabaja con dataframes convencionales, sino con una matriz dispersa de transacciones. Convertimos nuestros datos transformados a este formato, donde cada fila representa a un estudiante como un conjunto de "items" (sus características).
+
+```{r}
+data_transactions <- as(data_transformed, "transactions")
+```
+
+Ejecutamos el algoritmo buscando específicamente las reglas que tienen como consecuente la depresión (`Depression=Yes`). Configuramos un soporte mínimo del 5% para capturar patrones relevantes pero no necesariamente masivos, y una confianza del 50% para asegurar que la asociación sea significativa.
+
+```{r}
+rules <- apriori(data_transactions, 
+                 parameter = list(supp = 0.05, conf = 0.5),
+                 appearance = list(default = "lhs", rhs = "Depression=Yes"),
+                 control = list(verbose = FALSE))
+```
+
+Es común que el algoritmo genere reglas redundantes (versiones más complejas de una regla simple que no aportan más información). Filtramos estas redundancias matemáticamente y ordenamos las reglas restantes por **Lift**, que es la métrica clave para determinar cuánto aumenta el riesgo de depresión dada la presencia de los antecedentes.
+
+```{r}
+rules_pruned <- rules[!is.redundant(rules)]
+rules_sorted <- sort(rules_pruned, by = "lift")
+```
+
+Una vez filtradas las reglas redundantes, examinamos las 10 mejores asociaciones ordenadas por *Lift*. Un valor de Lift superior a 1 indica una relación positiva; cuanto mayor sea este valor, más fuerte es la dependencia entre los antecedentes (LHS) y la depresión (RHS). Esto nos permite identificar los perfiles de riesgo más críticos.
+
+```{r}
+rules_df_final <- as(head(rules_sorted, 10), "data.frame")
+
+rules_df_final <- rules_df_final[, c("rules", "support", "confidence", "lift", "count")]
+  
+rules_df_final$rules <- gsub("[\\{\\}]", "", rules_df_final$rules)
+rules_df_final$rules <- gsub("=>", "→", rules_df_final$rules)
+rules_df_final$rules <- gsub("Depression=Yes", "Depression", rules_df_final$rules)
+  
+rules_df_final$rules <- str_squish(rules_df_final$rules)
+  
+colnames(rules_df_final) <- c("Regla (Causa → Efecto)", "Soporte", "Confianza", "Lift", "Conteo")
+
+rules_df_final$Lift <- cell_spec(sprintf("%.3f", rules_df_final$Lift),
+                                 color = ifelse(rules_df_final$Lift > 1.65, "#C0392B", "black"),
+                                 bold = ifelse(rules_df_final$Lift > 1.65, TRUE, FALSE))
+
+kbl(rules_df_final, 
+    caption = "Top 10 Patrones de Riesgo Identificados", 
+    digits = 3, 
+    escape = FALSE,
+    row.names = FALSE,  
+    align = "lcccc") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = TRUE, 
+                position = "center",
+                font_size = 13) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#4CAF50") %>%
+  column_spec(1, bold = TRUE, width = "50em") %>%
+  add_footnote("Lift > 1 indica una asociación positiva fuerte (mayor riesgo).", notation = "none")
+```
+
+### 4.1. Interpretación clínica de los patrones
+
+El análisis de Reglas de Asociación revela una estructura patogénica clara, dominada por una **"Tríada Tóxica"** y amplificada por factores de estilo de vida. A continuación, desglosamos los hallazgos:
+
+1.  **La Tríada Tóxica (Regla #1, Lift 1.681)**: La componente más potente de depresión no es un factor aislado, sino la convergencia simultánea de **Presión Académica Extrema** + **Estrés Financiero Crítico** + **Pensamientos Suicidas**. Esta combinación eleva el riesgo (**Lift**) a su punto máximo (**1.681**), sugiriendo que la acumulación de estresores sistémicos (dinero y estudios) crea un callejón sin salida psicológico.
+
+2.  **La Omnipresencia de la Presión Académica**: El antecedente `Academic_Pressure=Very High` actúa como el denominador común en **todas las reglas principales**. Esto indica que, independientemente de otros factores, la percepción de una carga académica inmanejable es el pilar central sobre el que se construye la patología depresiva en esta población.
+
+3.  **Factores Catalizadores**: Observamos cómo factores biológicos actúan como amplificadores del riesgo. Hábitos como `Dietary_Habits=Unhealthy` (Reglas #2, #3, #5) y `Sleep_Duration=Less than 5 hours` (Regla #8) no aparecen aislados, sino que **exacerban** la vulnerabilidad creada por la presión académica. Específicamente, la privación de sueño severa (\< 5h) parece ser un mecanismo fisiológico que reduce la resiliencia ante el estrés académico.
+
+> Las intervenciones no deben enfocarse únicamente en "charla psicológica". Se requiere un **enfoque estructural** que mitigue la **Presión Académica** y ofrezca redes de seguridad para el **Estrés Financiero**, ya que estos son los detonantes primarios que, una vez activados, se ven agravados por malos hábitos de salud.
+
+## 5. Conclusiones
+
+En este cuaderno se ha realizado un análisis no supervisado con dos fines principales: **descubrir perfiles latentes de estudiantes** mediante clustering y **extraer patrones frecuentes de riesgo** mediante reglas de asociación. Los resultados principales se resumen en tres conclusiones:
+
+1.  **La segmentación en tres perfiles es estable y consistente.** El análisis inicial con el dataset completo no mostró un “codo” claro en WSS ni un máximo evidente en Silhouette, lo cual se explicó por la alta dimensionalidad y la dispersión de la varianza entre muchas variables. Tras aplicar selección de características por Información Mutua, la estructura emergente se estabiliza y el stress-test con CLARA muestra una convergencia sólida hacia k = 3, apoyando la existencia de tres perfiles diferenciados.
+2.  **Los perfiles detectados son interpretables y compatibles con una lectura clínica.** El análisis mediante Snake Plot permitió caracterizar los clusters como perfiles de riesgo (bajo/medio/alto) en función de sus valores promedio estandarizados. El perfil de alto riesgo concentra valores elevados en factores asociados a estrés y vulnerabilidad (p. ej., presión académica, estrés financiero, pensamientos suicidas) y peores indicadores de bienestar (p. ej., sueño y rendimiento), mientras que el perfil de bajo riesgo presenta el patrón contrario. Aunque la proyección PCA muestre cierto solapamiento visual (esperable al reducir dimensiones), las firmas medias por cluster evidencian diferencias estructurales.
+3.  **La validación externa y las reglas Apriori refuerzan los hallazgos.** Al reincorporar Depression como validación externa, se observa una fuerte polarización: el perfil de bajo riesgo presenta una prevalencia de depresión reducida, mientras que los perfiles medio y alto concentran una proporción muy elevada. Esto sugiere que el cluster “medio” no representa un estado leve, sino un umbral de vulnerabilidad donde la patología ya es altamente probable. Complementariamente, las reglas de asociación muestran combinaciones repetidas de factores donde destaca la co-ocurrencia de presión académica elevada, estrés financiero, hábitos poco saludables y, especialmente, pensamientos suicidas, configurando patrones interpretables como “cócteles de riesgo”.
+
+En conclusión, el aprendizaje no supervisado aporta una lectura sólida: el dataset contiene estructura latente segmentable, y la depresión aparece asociada a combinaciones de estresores (académicos y financieros) amplificados por hábitos y señales de vulnerabilidad emocional. Estos resultados son útiles tanto para interpretación del fenómeno como para orientar futuras hipótesis e intervenciones (por ejemplo, detección temprana en perfiles vulnerables y mitigación de estresores estructurales).

@@ -1,6 +1,6 @@
 # Depresset
 
-## Miembros del grupo
+## Miembros del grupo (Grupo 5)
 
 * Daniel Galván Cancio
 * Daniel Vela Camacho
@@ -11,7 +11,19 @@
 
 Student depression: https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset
 
-## Instrucciones
+## Estructura del proyecto
+
+Existen 4 cuadernos Rmd, cada uno correspondiendo a una fase de las vistas en la asignatura y solicitadas en el proyecto. Los hemos separado para que su ejecución sea más cómoda y además sean independientes entre sí. Dentro de la carpeta `data` se encuentra el dataset original y los generados con nosotros con los datos ya tratados. Para evitar forzar la ejecución de los Rmd, hay un html por cada uno, que se corresponde con el resultado de haberlo ejecutado.
+
+## Presentación
+
+[Presentación](https://docs.google.com/presentation/d/1WM8TWYhx2RNFehmAqm4xMepOVs4PO46ejPoxJsZ2lpQ/edit?usp=sharing): con la versión llamada `VERSIÓN ENTREGA`, del 13 de Diciembre de 2025 a las 16:52.
+
+## Memoria
+
+El informe que resume todo el trabajo realizado y sirve de guía para comprender mejor los Rmd se encuentra en `docs`, y es la [memoria del proyecto](./docs/Memoria%20proyecto%20grupo%205.pdf).
+
+## Instrucciones del trabajo realizado
 
 Se debe elegir un conjunto de datos y analizarlo. Repositorio de datos:
 
@@ -32,7 +44,4 @@ Se debe tener en cuenta al exponer el análisis realizado:
 * Análisis realizado.
 * Conclusiones, dificultades, comentarios, etc.
 
-En resumen, seguir la siguiente rúbrica: Rubrica.xlsx
-
-[Presentación](https://docs.google.com/presentation/d/1WM8TWYhx2RNFehmAqm4xMepOVs4PO46ejPoxJsZ2lpQ/edit?usp=sharing): con la versión llamada `VERSIÓN ENTREGA`, del 13 de Diciembre de 2025 a las 16:52.
-
+En resumen, seguir la siguiente rúbrica: [Rubrica.xlsx](Rubrica.xlsx)

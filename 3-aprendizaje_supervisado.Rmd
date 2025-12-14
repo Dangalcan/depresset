@@ -936,7 +936,7 @@ ggplot(metrics_test, aes(x = reorder(Modelo, AUC), y = AUC, fill = Highlight)) +
   geom_col(alpha = 0.8) +
   coord_flip() +
   scale_fill_manual(values = c("Mejor Modelo" = "#2E8B57", "Otros" = "gray70")) +
-  geom_text(aes(label = round(AUC, 4)), hjust = 1.1, color = "white", size = 3.5, fontface = "bold") +
+  geom_text(aes(label = round(AUC, 5)), hjust = 1.1, color = "white", size = 3.5, fontface = "bold") +
   labs(
     title = "Resumen Final: Ranking de Modelos por AUC (Test)",
     subtitle = "El modelo XGBoost (MinMax + MI) demuestra la mayor capacidad discriminatoria",
